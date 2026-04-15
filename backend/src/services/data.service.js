@@ -14,7 +14,7 @@ class DataService {
   /**
    * Process uploaded file via Worker Thread
    */
-  async processFileUpload(fileBuffer) {
+  async processFileUpload(fileBuffer, fileName) {
     return new Promise((resolve, reject) => {
       const worker = new Worker(WORKER_PATH, {
         workerData: { fileBuffer }
@@ -26,8 +26,9 @@ class DataService {
         } else {
           // Store in repository
           await inventoryRepository.bulkInsert(message.rows)
+          const logData = await inventoryRepository.logUpload(fileName, message.rows.length)
           this.reportType = message.reportType || 'location'
-          resolve({ count: message.rows.length })
+          resolve({ count: message.rows.length, log: logData })
         }
       })
 

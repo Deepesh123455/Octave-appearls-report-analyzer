@@ -5,6 +5,7 @@
 class InventoryRepository {
   constructor() {
     this.data = []
+    this.uploadLogs = []
   }
 
   /**
@@ -33,6 +34,28 @@ class InventoryRepository {
    */
   async getAll() {
     return this.data
+  }
+
+  /**
+   * Log an upload event in memory
+   * @param {string} fileName - Original name of the uploaded file
+   * @param {number} recordCount - Number of records processed
+   */
+  async logUpload(fileName, recordCount) {
+    const entry = {
+      fileName,
+      timestamp: new Date().toISOString(),
+      totalRecords: recordCount
+    }
+    this.uploadLogs.push(entry)
+    return entry
+  }
+
+  /**
+   * Return all in-memory upload logs
+   */
+  async getLogs() {
+    return this.uploadLogs
   }
 }
 
