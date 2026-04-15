@@ -304,7 +304,7 @@ const DrilldownChart: React.FC<DrilldownChartProps> = ({ data, reportType }) => 
       <ReactECharts
         option={option}
         onEvents={{ click: onChartClick }}
-        style={{ height: '560px', width: '100%' }}
+        style={{ height: 'clamp(320px, 60vw, 560px)', width: '100%' }}
       />
     </div>
   )
