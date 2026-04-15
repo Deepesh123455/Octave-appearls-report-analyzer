@@ -1,7 +1,5 @@
 import axios, { type AxiosProgressEvent } from 'axios'
 
-// Smart base URL: Priority to 3000, fallback to 3001 if 3000 is blocked
-const API_PORT = window.location.port === '5173' ? '3000' : window.location.port
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE || `http://localhost:3000`
 })

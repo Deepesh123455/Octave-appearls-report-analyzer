@@ -1,21 +1,19 @@
 import React, { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Upload, FileCheck, Loader2, XCircle, ArrowRight, Info } from 'lucide-react'
+import { Upload, Loader2, XCircle, Info } from 'lucide-react'
 import { uploadInventoryFile } from '../api'
 
 const UploadPage: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const navigate = useNavigate()
   const fileInputRef = useRef<HTMLInputElement>(null)
-
   const progressRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const startProgressSimulation = (from: number, to: number, stepMs: number) => {
+  const startProgressSimulation = (to: number, stepMs: number) => {
     if (progressRef.current) clearInterval(progressRef.current)
     progressRef.current = setInterval(() => {
       setProgress(prev => {
@@ -23,7 +21,6 @@ const UploadPage: React.FC = () => {
           clearInterval(progressRef.current!)
           return to
         }
-        // Slow down as we approach the target
         const remaining = to - prev
         const increment = Math.max(0.3, remaining * 0.04)
         return Math.min(to, prev + increment)
@@ -33,18 +30,17 @@ const UploadPage: React.FC = () => {
 
   const handleUpload = async (selectedFile: File) => {
     setError(null)
-    setFile(selectedFile)
     setIsUploading(true)
     setProgress(0)
 
-    // Phase 1: Simulate upload 0 → 70% over ~1.5s
-    startProgressSimulation(0, 70, 40)
+    // Phase 1: Simulate upload 0 → 70%
+    startProgressSimulation(70, 40)
 
     try {
       await uploadInventoryFile(selectedFile, () => {})
 
-      // Phase 2: Server is parsing → animate 70 → 95%
-      startProgressSimulation(70, 95, 60)
+      // Phase 2: Server parsing → 70 → 95%
+      startProgressSimulation(95, 60)
 
       // Phase 3: Done → snap to 100% and navigate
       setTimeout(() => {
@@ -52,10 +48,10 @@ const UploadPage: React.FC = () => {
         setProgress(100)
         setTimeout(() => navigate('/analytics'), 600)
       }, 800)
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (progressRef.current) clearInterval(progressRef.current)
-      setError(err.message || 'Validation failed. Please check your file format.')
-      setFile(null)
+      const message = err instanceof Error ? err.message : 'Validation failed. Please check your file format.'
+      setError(message)
       setIsUploading(false)
       setProgress(0)
     }
@@ -75,7 +71,7 @@ const UploadPage: React.FC = () => {
       <div className="aurora-blob aurora-3"></div>
 
       <main className="portal-content">
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           className="portal-header"
@@ -85,27 +81,27 @@ const UploadPage: React.FC = () => {
           <p>Securely upload your inventory report to unlock deep sales insights.</p>
         </motion.div>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ delay: 0.2 }}
           className={`portal-glass-card ${isDragging ? 'dragging' : ''}`}
-          onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+          onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
           onDragLeave={() => setIsDragging(false)}
           onDrop={onDrop}
           onClick={() => !isUploading && fileInputRef.current?.click()}
         >
-          <input 
-            type="file" 
-            hidden 
-            ref={fileInputRef} 
+          <input
+            type="file"
+            hidden
+            ref={fileInputRef}
             onChange={(e) => e.target.files?.[0] && handleUpload(e.target.files[0])}
             accept=".csv,.xlsx,.xls"
           />
 
           <AnimatePresence mode="wait">
             {!isUploading ? (
-              <motion.div 
+              <motion.div
                 key="idle"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -120,7 +116,7 @@ const UploadPage: React.FC = () => {
                 <div className="browse-badge">Click to Browse</div>
               </motion.div>
             ) : (
-              <motion.div 
+              <motion.div
                 key="uploading"
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
@@ -156,7 +152,7 @@ const UploadPage: React.FC = () => {
           </AnimatePresence>
 
           {error && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               className="portal-error-msg"
@@ -166,7 +162,7 @@ const UploadPage: React.FC = () => {
           )}
         </motion.div>
 
-        <motion.footer 
+        <motion.footer
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.4 }}

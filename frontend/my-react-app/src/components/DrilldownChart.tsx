@@ -43,8 +43,13 @@ const DrilldownChart: React.FC<DrilldownChartProps> = ({ data, reportType }) => 
   }
 
   const option = useMemo(() => {
+    const JUNK_NAMES = ['total', 'n/a', '#n/a', '#ref!', '#value!', '#div/0!']
     const sorted = [...(currentLevelData || [])]
-      .filter(item => item.name && !item.name.toLowerCase().includes('total'))
+      .filter(item => {
+        if (!item.name) return false
+        const lower = item.name.toLowerCase().trim()
+        return !JUNK_NAMES.some(junk => lower === junk || lower.includes(junk))
+      })
       .sort((a, b) => sortAsc
         ? (a.value || 0) - (b.value || 0)   // low → high
         : (b.value || 0) - (a.value || 0)   // high → low (default)

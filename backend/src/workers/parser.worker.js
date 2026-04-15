@@ -29,7 +29,8 @@ const rowSchema = z.object({
 })
 
 const JUNK_PATTERNS = [
-  'total', 'summary', 'grand total', 'sub total', 'printed on', 'printed by'
+  'total', 'summary', 'grand total', 'sub total', 'printed on', 'printed by',
+  'n/a', '#n/a', '#ref!', '#value!', '#div/0!'
 ]
 
 const isJunkRow = (name) => {

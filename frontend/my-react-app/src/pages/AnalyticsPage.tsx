@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { LayoutDashboard, ArrowLeft, BarChart3, TrendingUp, Package, MapPin } from 'lucide-react'
+import { LayoutDashboard, ArrowLeft, TrendingUp, Package, MapPin } from 'lucide-react'
 import { fetchTreemapData } from '../api'
 import DrilldownChart from '../components/DrilldownChart'
 
