@@ -1,7 +1,7 @@
 import axios, { type AxiosProgressEvent } from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE || `http://localhost:3000`
+  baseURL: import.meta.env.VITE_API_BASE || `https://octave-appearls-report-analyzer.onrender.com`
 })
 
 // Auto-switch to 3001 if 3000 fails (for local dev resilience)

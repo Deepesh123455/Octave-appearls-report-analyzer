@@ -6,7 +6,25 @@ const app = express()
 const initialPort = parseInt(process.env.PORT || '3000', 10)
 
 // Middlewares
-app.use(cors())
+// Replace your existing app.use(cors()) with this:
+
+const allowedOrigins = [
+  'http://localhost:5173', // Local Vite frontend
+  'http://localhost:3000', // Local CRA frontend
+  'https://octave-appearls-report-analyzer-pi3.vercel.app' // Your Vercel deployment
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true, // Important if you are sending cookies or specific headers
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS','PATCH'] // Specify allowed HTTP methods,
+}));
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
