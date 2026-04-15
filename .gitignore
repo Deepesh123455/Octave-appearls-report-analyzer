@@ -1,0 +1,41 @@
+# ==============================================================================
+# ROOT .gitignore — Octave Excel Sheet Analyzer
+# Covers both /backend and /frontend at the monorepo level
+# ==============================================================================
+
+# ── Node ──────────────────────────────────────────────────────────────────────
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── OS / Editor artefacts ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ── Environment files ─────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Temporary / debug files generated during development ──────────────────────
+debug_headers.txt
+debug_processed_rows.json
+*.local

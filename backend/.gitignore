@@ -1,0 +1,37 @@
+# ==============================================================================
+# BACKEND .gitignore — Node.js / Express (ESM)
+# ==============================================================================
+
+# ── Dependencies ──────────────────────────────────────────────────────────────
+node_modules/
+
+# ── Environment variables ─────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Uploaded / processed data files ───────────────────────────────────────────
+# Uploaded Excel files stored at runtime — never commit raw data
+data/uploads/
+data/temp/
+
+# ── Debug artefacts (generated during development) ────────────────────────────
+debug_headers.txt
+debug_processed_rows.json
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ── OS / Editor ───────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+*.local
