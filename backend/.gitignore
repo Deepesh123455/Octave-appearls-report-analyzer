@@ -10,10 +10,13 @@ node_modules/
 .env.*
 !.env.example
 
-# ── Uploaded / processed data files ───────────────────────────────────────────
-# Uploaded Excel files stored at runtime — never commit raw data
-data/uploads/
-data/temp/
+# ── Client data — NEVER commit Excel files ────────────────────────────────────
+# The entire data/ folder contains confidential client data
+data/
+*.xls
+*.xlsx
+*.xlsm
+*.xlsb
 
 # ── Debug artefacts (generated during development) ────────────────────────────
 debug_headers.txt
