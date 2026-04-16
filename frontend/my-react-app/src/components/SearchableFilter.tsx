@@ -8,7 +8,7 @@ interface SearchableFilterProps {
   onSelect: (value: string) => void;
   label: string;
   placeholder?: string;
-  width?: string;
+  minWidth?: string;
 }
 
 const SearchableFilter: React.FC<SearchableFilterProps> = ({
@@ -17,7 +17,7 @@ const SearchableFilter: React.FC<SearchableFilterProps> = ({
   onSelect,
   label,
   placeholder = 'Search...',
-  width = '200px'
+  minWidth = '200px'
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -79,7 +79,7 @@ const SearchableFilter: React.FC<SearchableFilterProps> = ({
   };
 
   return (
-    <div className="filter-group" ref={dropdownRef} style={{ width, flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
+    <div className="filter-group-wrapper" ref={dropdownRef} style={{ minWidth, width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '4px' }}>
       <div className="filter-label" style={{ 
         fontSize: '10px', 
         fontWeight: 700, 

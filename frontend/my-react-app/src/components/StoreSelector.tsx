@@ -21,7 +21,7 @@ const StoreSelector: React.FC<StoreSelectorProps> = ({
       onSelect={onSelect}
       label={label}
       placeholder="Search stores..."
-      width="220px"
+      minWidth="180px"
     />
   );
 };

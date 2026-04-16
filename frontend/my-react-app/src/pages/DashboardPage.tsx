@@ -130,7 +130,28 @@ const DashboardPage: React.FC = () => {
       }
     };
     init();
-  }, []);
+
+    // ── Session Protection: Alert on Refresh ─────────────────────────
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Trigger a database reset in the background
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+      navigator.sendBeacon(`${apiUrl}/api/inventory/reset`);
+      
+      e.preventDefault();
+      e.returnValue = ''; // Required for Chrome confirmation
+      return '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [navigate]);
+
+  // Handle auto-redirect if data is wiped (happens after refresh)
+  useEffect(() => {
+    if (!loading && skus.length === 0) {
+      navigate('/');
+    }
+  }, [skus, loading, navigate]);
 
   useEffect(() => {
     if (selectedSku) {
@@ -402,7 +423,7 @@ const DashboardPage: React.FC = () => {
 
               <div className="filter-divider"></div>
 
-              <div style={{ display: 'flex', gap: '1rem' }}>
+              <div className="refinement-controls">
                 <ColorSelector
                   colors={colorOptions}
                   selectedColor={effectiveSelectedColor}

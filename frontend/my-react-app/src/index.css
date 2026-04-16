@@ -571,6 +571,25 @@ h3 {
   }
 }
 
+.filter-divider {
+  width: 1px;
+  height: 20px;
+  background: rgba(212, 168, 90, 0.15);
+}
+
+.refinement-controls {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+  .refinement-controls {
+    flex-direction: column;
+    width: 100%;
+  }
+}
+
 .filter-group {
   display: flex;
   align-items: center;

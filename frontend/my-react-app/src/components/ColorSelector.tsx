@@ -20,8 +20,8 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
       selected={selectedColor}
       onSelect={onSelect}
       label={label}
-      placeholder="Search colors..."
-      width="180px"
+      placeholder="Search stores..."
+      minWidth="180px"
     />
   );
 };
