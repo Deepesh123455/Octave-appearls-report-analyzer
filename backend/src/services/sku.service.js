@@ -10,28 +10,40 @@ const { THRESHOLDS, TRANSFER } = InventoryConfig;
  * @returns {{ primary: string, inTransit: boolean }}
  */
 export const classifyStatus = (row) => {
-  const { obsQty = 0, cbsQty = 0, gitQty = 0, netSlsQty = 1, saleThruPct = 0 } = row;
+  const { cbsQty = 0, gitQty = 0, netSlsQty = 0, saleThruPct = 0 } = row;
+  const stockOnHand = cbsQty;
+  const sales = netSlsQty;
+  const velocity = sales;
   const inTransit = gitQty > 0;
 
-  let primary;
-  // Enterprise-style rule order:
-  // 1) Low closing stock => CRITICAL (risk of stockout)
-  if (cbsQty < THRESHOLDS.CRITICAL_CBS) {
-    primary = 'CRITICAL';
-  // 2) Very high sell-through => CRITICAL (fast depletion)
-  } else if (saleThruPct > THRESHOLDS.HIGH_SELL_THRU) {
-    primary = 'CRITICAL';
-  // 3) Very low/zero sell-through while stock exists => OVERSTOCK (slow moving)
-  } else if (saleThruPct <= THRESHOLDS.LOW_SELL_THRU && cbsQty >= THRESHOLDS.CRITICAL_CBS) {
-    primary = 'OVERSTOCK';
-  // 4) Classic overstock by quantity vs sales
-  } else if (obsQty > (Math.max(netSlsQty, 1) * THRESHOLDS.OVERSTOCK_RATIO) && obsQty > THRESHOLDS.OVERSTOCK_MIN_QTY) {
-    primary = 'OVERSTOCK';
-  } else {
-    primary = 'HEALTHY';
+  // 1. OUT OF STOCK
+  if (stockOnHand <= 0 && velocity > 0) {
+    return { primary: 'OUT_OF_STOCK', inTransit };
   }
 
-  return { primary, inTransit };
+  // 2. STAGNANT
+  if (velocity <= 0 && stockOnHand > 0) {
+    return { primary: 'STAGNANT', inTransit };
+  }
+
+  // 3. WOS CALCULATION (Velocity detected)
+  if (velocity >= THRESHOLDS.MIN_SALES_FOR_WOS) {
+    const wos = stockOnHand / velocity;
+    if (wos < THRESHOLDS.WOS_CRITICAL) return { primary: 'CRITICAL', inTransit };
+    if (wos < THRESHOLDS.WOS_LOW) return { primary: 'LOW_STOCK', inTransit };
+    if (wos > THRESHOLDS.WOS_OVERSTOCK) return { primary: 'OVERSTOCK', inTransit };
+  }
+
+  // 4. FALLBACKS
+  if (saleThruPct > THRESHOLDS.STATIC_SELL_THRU_HIGH && stockOnHand < THRESHOLDS.CRITICAL_CBS) {
+    return { primary: 'CRITICAL', inTransit };
+  }
+  
+  if (saleThruPct < THRESHOLDS.STATIC_SELL_THRU_LOW && stockOnHand > (THRESHOLDS.CRITICAL_CBS * 4)) {
+    return { primary: 'OVERSTOCK', inTransit };
+  }
+
+  return { primary: 'HEALTHY', inTransit };
 };
 
 class SKUService {

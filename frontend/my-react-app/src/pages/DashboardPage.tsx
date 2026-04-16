@@ -37,28 +37,38 @@ import SalesBarChart from '../components/SalesBarChart';
 import SellThroughGauge from '../components/SellThroughGauge';
 import TransferManifest from '../components/TransferManifest';
 import ColorSelector from '../components/ColorSelector';
+import StoreSelector from '../components/StoreSelector';
 
 const deriveStatus = (
   obsQty: number,
   cbsQty: number,
   gitQty: number,
-  saleThruPct: number
+  saleThruPct: number,
+  netSlsQty: number
 ): SKUStatus => {
-  const totalAvailable = (cbsQty || 0) + (gitQty || 0);
-  const safeSaleThru = saleThruPct || 0;
+  const stockOnHand = cbsQty || 0;
+  const sales = netSlsQty || 0;
+  const velocity = sales; // Units sold in the period (assume 1 week)
+  const sellThru = saleThruPct || 0;
+  
+  // 1. OUT OF STOCK (Opportunity Loss)
+  if (stockOnHand <= 0 && velocity > 0) return 'OUT_OF_STOCK';
+  
+  // 2. STAGNANT (Dead Capital)
+  if (velocity <= 0 && stockOnHand > 0) return 'STAGNANT';
+  
+  // 3. Velocity-Based Coverage (Weeks of Stock)
+  if (velocity > 0) {
+    const wos = stockOnHand / velocity;
+    
+    if (wos < 0.8) return 'CRITICAL';  // Less than 1 week coverage
+    if (wos < 1.8) return 'LOW_STOCK'; // Less than 2 weeks coverage
+    if (wos > 10) return 'OVERSTOCK';  // More than 10 weeks coverage
+  }
 
-  // Critical: high demand, very low or no stock
-  if (totalAvailable <= 0 && safeSaleThru >= 30) {
-    return 'CRITICAL';
-  }
-  if (totalAvailable > 0 && safeSaleThru >= 60 && totalAvailable <= (obsQty || 0) * 0.2) {
-    return 'CRITICAL';
-  }
-
-  // Overstock: low demand with high remaining stock
-  if (safeSaleThru <= 25 && totalAvailable >= (obsQty || 0) * 0.7) {
-    return 'OVERSTOCK';
-  }
+  // 4. Fallback to Sell-Through for low-volume items
+  if (sellThru > 80 && stockOnHand < (obsQty * 0.2)) return 'CRITICAL';
+  if (sellThru < 10 && stockOnHand > (obsQty * 0.7)) return 'OVERSTOCK';
 
   return 'HEALTHY';
 };
@@ -74,6 +84,7 @@ const DashboardPage: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('ALL');
+  const [selectedStore, setSelectedStore] = useState<string>('ALL');
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -123,8 +134,9 @@ const DashboardPage: React.FC = () => {
   }, [selectedSku]);
 
   useEffect(() => {
-    // Reset color filter when user switches SKU
+    // Reset filters when user switches SKU
     setSelectedColor('ALL');
+    setSelectedStore('ALL');
   }, [selectedSku]);
 
   useEffect(() => {
@@ -143,18 +155,31 @@ const DashboardPage: React.FC = () => {
     return ['ALL', ...uniq];
   }, [detail]);
 
+  const storeOptions = React.useMemo(() => {
+    const rows = detail?.storeBreakdown || [];
+    const uniq = Array.from(new Set(rows.map(r => r.locationName).filter(Boolean)));
+    uniq.sort();
+    return ['ALL', ...uniq];
+  }, [detail]);
+
   const effectiveSelectedColor = colorOptions.includes(selectedColor) ? selectedColor : 'ALL';
+  const effectiveSelectedStore = storeOptions.includes(selectedStore) ? selectedStore : 'ALL';
 
   const selectedRows = React.useMemo<StoreBreakdown[]>(() => {
-    const rows = detail?.storeBreakdown || [];
-    if (effectiveSelectedColor === 'ALL') return rows;
-    return rows.filter(r => r.colorName === effectiveSelectedColor);
-  }, [detail, effectiveSelectedColor]);
+    let rows = detail?.storeBreakdown || [];
+    if (effectiveSelectedColor !== 'ALL') {
+      rows = rows.filter(r => r.colorName === effectiveSelectedColor);
+    }
+    if (effectiveSelectedStore !== 'ALL') {
+      rows = rows.filter(r => r.locationName === effectiveSelectedStore);
+    }
+    return rows;
+  }, [detail, effectiveSelectedColor, effectiveSelectedStore]);
 
   const enrichedRows = React.useMemo<StoreBreakdown[]>(() => {
     return (selectedRows || []).map((r) => ({
       ...r,
-      status: deriveStatus(r.obsQty, r.cbsQty, r.gitQty, r.saleThruPct),
+      status: deriveStatus(r.obsQty, r.cbsQty, r.gitQty, r.saleThruPct, r.netSlsQty),
       inTransit: r.gitQty > 0,
     }));
   }, [selectedRows]);
@@ -316,12 +341,21 @@ const DashboardPage: React.FC = () => {
 
               <div className="filter-divider"></div>
 
-              <ColorSelector
-                colors={colorOptions}
-                selectedColor={effectiveSelectedColor}
-                onSelect={setSelectedColor}
-                label="Refine by Color"
-              />
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <ColorSelector
+                  colors={colorOptions}
+                  selectedColor={effectiveSelectedColor}
+                  onSelect={setSelectedColor}
+                  label="Color"
+                />
+                
+                <StoreSelector
+                  stores={storeOptions}
+                  selectedStore={effectiveSelectedStore}
+                  onSelect={setSelectedStore}
+                  label="Store"
+                />
+              </div>
             </motion.div>
           ) : null}
         </AnimatePresence>

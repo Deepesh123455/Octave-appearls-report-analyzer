@@ -3,13 +3,15 @@
  * Centralized business logic thresholds to avoid hardcoding.
  */
 export const InventoryConfig = {
-  // Stock Status Thresholds
+  // Stock Status Analysis Thresholds (Weeks of Stock - WOS)
   THRESHOLDS: {
-    CRITICAL_CBS: 10,       // CBS qty below this = CRITICAL
-    LOW_SELL_THRU: 5,       // Sell-through at or below this % => slow moving (not healthy)
-    OVERSTOCK_RATIO: 3,     // OBS > 3x net sales = potentially overstock
-    OVERSTOCK_MIN_QTY: 30,  // Must also have at least 30 units to count as overstock
-    HIGH_SELL_THRU: 85,     // Sell-through above this = critical risk of stockout
+    WOS_CRITICAL: 0.8,       // CBS / Sales < 0.8 weeks = CRITICAL
+    WOS_LOW: 1.8,            // CBS / Sales < 1.8 weeks = LOW STOCK
+    WOS_OVERSTOCK: 8.0,      // CBS / Sales > 8.0 weeks = OVERSTOCK
+    MIN_SALES_FOR_WOS: 1,    // Minimum sales to trust WOS calculation
+    STATIC_SELL_THRU_HIGH: 85, // Fallback for high-demand items
+    STATIC_SELL_THRU_LOW: 10,  // Fallback for stagnant items
+    CRITICAL_CBS: 5,        // Absolute minimum stock before critical alert
   },
 
   // Transfer Matching Engine Logic

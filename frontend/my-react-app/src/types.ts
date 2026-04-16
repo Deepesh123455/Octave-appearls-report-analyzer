@@ -20,7 +20,7 @@ export type TreemapNode = {
   children?: TreemapNode[]
 }
 
-export type SKUStatus = 'CRITICAL' | 'OVERSTOCK' | 'HEALTHY' | 'IN_TRANSIT';
+export type SKUStatus = 'CRITICAL' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'OVERSTOCK' | 'STAGNANT' | 'HEALTHY' | 'IN_TRANSIT';
 
 export type SKUSummary = {
   totalObs: number
