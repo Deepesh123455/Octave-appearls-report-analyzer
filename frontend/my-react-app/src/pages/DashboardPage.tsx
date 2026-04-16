@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Package, 
-  ArrowLeft, 
-  TrendingUp, 
-  AlertCircle, 
-  ArrowRightLeft, 
+import {
+  LayoutDashboard,
+  Package,
+  ArrowLeft,
+  TrendingUp,
+  AlertCircle,
+  ArrowRightLeft,
   ChevronRight,
   RefreshCw,
   Zap,
@@ -17,15 +17,15 @@ import {
   X
 } from 'lucide-react';
 
-import { 
-  fetchSKUList, 
-  fetchSKUDetail, 
-  fetchTransferSuggestions 
+import {
+  fetchSKUList,
+  fetchSKUDetail,
+  fetchTransferSuggestions
 } from '../api';
 
-import type { 
-  SKUDetail, 
-  TransferSuggestion, 
+import type {
+  SKUDetail,
+  TransferSuggestion,
   StoreBreakdown,
   SKUSummary,
   SKUStatus,
@@ -83,14 +83,14 @@ const DashboardPage: React.FC = () => {
           fetchSKUList(),
           fetchTransferSuggestions()
         ]);
-        
+
         if (skuRes.success) {
           setSkus(skuRes.data);
           if (skuRes.data.length > 0) {
             setSelectedSku(skuRes.data[0]);
           }
         }
-        
+
         if (transferRes.success) {
           setTransfers(transferRes.data);
         }
@@ -290,10 +290,10 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
           <div className="header-right">
-            <SKUSelector 
-              skus={skus} 
-              selectedSku={selectedSku} 
-              onSelect={setSelectedSku} 
+            <SKUSelector
+              skus={skus}
+              selectedSku={selectedSku}
+              onSelect={setSelectedSku}
             />
           </div>
         </header>
@@ -301,7 +301,7 @@ const DashboardPage: React.FC = () => {
         {/* Selection Refinement Toolbar */}
         <AnimatePresence mode="popLayout">
           {detail?.storeBreakdown?.length ? (
-            <motion.div 
+            <motion.div
               key="sku-refinement-bar"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
@@ -313,7 +313,7 @@ const DashboardPage: React.FC = () => {
                 <Package size={14} className="filter-icon" />
                 <span className="filter-label-inline">Active SKU: <strong>{selectedSku}</strong></span>
               </div>
-              
+
               <div className="filter-divider"></div>
 
               <ColorSelector
@@ -326,14 +326,14 @@ const DashboardPage: React.FC = () => {
           ) : null}
         </AnimatePresence>
         <div className="dashboard-tabs">
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
             onClick={() => setActiveTab('analytics')}
           >
             <TrendingUp size={16} />
             Inventory Analytics
           </button>
-          <button 
+          <button
             className={`tab-btn ${activeTab === 'logistics' ? 'active' : ''}`}
             onClick={() => setActiveTab('logistics')}
           >
@@ -344,30 +344,30 @@ const DashboardPage: React.FC = () => {
 
         {/* KPI Strip */}
         <div className="kpi-strip">
-          <KPICard 
-            label="Total Opening Stock" 
-            value={summary?.totalObs || 0} 
-            icon={<Box size={20} />} 
-            trend={summary?.totalSales && summary?.totalObs ? `${Math.round((summary.totalSales / summary.totalObs) * 100)}%` : null} 
+          <KPICard
+            label="Total Opening Stock"
+            value={summary?.totalObs || 0}
+            icon={<Box size={20} />}
+            trend={summary?.totalSales && summary?.totalObs ? `${Math.round((summary.totalSales / summary.totalObs) * 100)}%` : null}
             tooltip="Sum of all units across stores at start of report period"
           />
-          <KPICard 
-            label="Closing Stock" 
-            value={summary?.totalCbs || 0} 
-            icon={<Package size={20} />} 
+          <KPICard
+            label="Closing Stock"
+            value={summary?.totalCbs || 0}
+            icon={<Package size={20} />}
             tooltip="Current live inventory standing in physical locations"
           />
-          <KPICard 
-            label="Net Sales Qty" 
-            value={summary?.totalSales || 0} 
-            icon={<TrendingUp size={20} />} 
+          <KPICard
+            label="Net Sales Qty"
+            value={summary?.totalSales || 0}
+            icon={<TrendingUp size={20} />}
             color="#4A7C59"
             tooltip="Total units sold (minus returns) during the period"
           />
-          <KPICard 
-            label="Stock In-Transit" 
-            value={summary?.totalGit || 0} 
-            icon={<Truck size={20} />} 
+          <KPICard
+            label="Stock In-Transit"
+            value={summary?.totalGit || 0}
+            icon={<Truck size={20} />}
             color="#B07D3A"
             tooltip="Inventory currently between warehouses or stores"
           />
@@ -375,7 +375,7 @@ const DashboardPage: React.FC = () => {
 
         <AnimatePresence mode="wait">
           {activeTab === 'analytics' ? (
-            <motion.div 
+            <motion.div
               key="analytics"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -438,8 +438,8 @@ const DashboardPage: React.FC = () => {
                       </thead>
                       <tbody>
                         <AnimatePresence mode="popLayout" initial={false}>
-                          {selectedRows.map((row, idx) => (
-                            <motion.tr 
+                          {selectedRows.map((row) => (
+                            <motion.tr
                               key={`${row.locationName}-${row.colorName}-${row.sectionName}`}
                               layout
                               initial={{ opacity: 0 }}
@@ -457,9 +457,9 @@ const DashboardPage: React.FC = () => {
                               <td>{row.cbsQty}</td>
                               <td>
                                 <div className="progress-mini">
-                                  <div 
-                                    className="progress-fill" 
-                                    style={{ 
+                                  <div
+                                    className="progress-fill"
+                                    style={{
                                       width: `${Math.min(row.saleThruPct, 100)}%`,
                                       background: row.saleThruPct > 80 ? '#4A7C59' : row.saleThruPct > 40 ? '#B07D3A' : '#ef4444'
                                     }}
@@ -480,7 +480,7 @@ const DashboardPage: React.FC = () => {
               </div>
             </motion.div>
           ) : (
-            <motion.div 
+            <motion.div
               key="logistics"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -495,7 +495,7 @@ const DashboardPage: React.FC = () => {
                     <p>Optimized suggestions to balance stock levels</p>
                   </div>
                 </div>
-                
+
                 <div className="card-body no-padding">
                   <div className="transfer-list">
                     {detail?.storeBreakdown.some(s => s.locationName === 'NETWORK_WIDE') ? (
@@ -515,7 +515,7 @@ const DashboardPage: React.FC = () => {
                 <AlertCircle size={20} className="shake" />
                 <div>
                   <h4>System Diagnostic</h4>
-                    <p>Checked {selectedRows.length || 0} active rows and validated {(summary?.totalCbs || 0).toLocaleString()} units. Recommendations computed by SCM rules.</p>
+                  <p>Checked {selectedRows.length || 0} active rows and validated {(summary?.totalCbs || 0).toLocaleString()} units. Recommendations computed by SCM rules.</p>
                 </div>
               </div>
             </motion.div>
@@ -568,7 +568,7 @@ const DashboardPage: React.FC = () => {
 };
 
 const KPICard = ({ label, value, icon, color = '#D4A85A', trend, tooltip }: any) => (
-  <motion.div 
+  <motion.div
     whileHover={{ y: -4 }}
     className="kpi-card-enterprise"
     title={tooltip}
