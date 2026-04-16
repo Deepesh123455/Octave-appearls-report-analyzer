@@ -1,4 +1,5 @@
 import React from 'react';
+import SearchableFilter from './SearchableFilter';
 
 interface StoreSelectorProps {
   stores: string[];
@@ -14,21 +15,14 @@ const StoreSelector: React.FC<StoreSelectorProps> = ({
   label = 'Store',
 }) => {
   return (
-    <div className="filter-group">
-      <div className="filter-label">{label}</div>
-      <select
-        className="filter-select"
-        aria-label={label}
-        value={selectedStore}
-        onChange={(e) => onSelect(e.target.value)}
-      >
-        {stores.map((s) => (
-          <option key={s} value={s}>
-            {s === 'ALL' ? 'All Stores' : s}
-          </option>
-        ))}
-      </select>
-    </div>
+    <SearchableFilter
+      options={stores}
+      selected={selectedStore}
+      onSelect={onSelect}
+      label={label}
+      placeholder="Search stores..."
+      width="220px"
+    />
   );
 };
 

@@ -29,6 +29,7 @@ export type SKUSummary = {
   totalSales: number
   avgSaleThru: number
   overallStatus: SKUStatus
+  overallReason?: string
   inTransit: boolean
   storeCount: number
 }
@@ -43,6 +44,8 @@ export type StoreBreakdown = {
   netSlsQty: number
   saleThruPct: number
   status: SKUStatus
+  statusReason?: string
+  asm?: string
   inTransit: boolean
 }
 
@@ -62,4 +65,6 @@ export type TransferSuggestion = {
   toDeficit: number
   recommendedQty: number
   urgency: 'HIGH' | 'MEDIUM' | 'LOW'
+  fromAsm?: string
+  toAsm?: string
 }

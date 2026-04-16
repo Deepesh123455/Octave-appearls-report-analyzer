@@ -214,6 +214,8 @@ class SKUService {
           toDeficit:    recv.deficit,
           recommendedQty,
           urgency: recv.cbsQty < 3 ? 'HIGH' : recv.deficit > 10 ? 'MEDIUM' : 'LOW',
+          fromAsm: bestSender.asm,
+          toAsm: recv.asm
         });
       }
     }

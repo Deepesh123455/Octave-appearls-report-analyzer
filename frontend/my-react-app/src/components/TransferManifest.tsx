@@ -111,6 +111,11 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--ent-text-muted)', marginTop: '2px' }}>
                     Receiving {storeSuggestions.length} items • Total {totalQty} units
+                    {storeSuggestions[0].toAsm && storeSuggestions[0].toAsm !== 'N/A' && (
+                      <span style={{ color: 'var(--primary)', fontWeight: 600, marginLeft: '8px' }}>
+                        • Manager: {storeSuggestions[0].toAsm}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -131,40 +136,49 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                     style={{ overflow: 'hidden' }}
                   >
                   <div style={{ padding: '0 20px 20px' }}>
-                      <table className="enterprise-table" style={{ background: 'rgba(212, 168, 90, 0.06)', borderRadius: '12px' }}>
-                        <thead>
-                          <tr>
-                            <th>SKU / Article</th>
-                            <th>From Store</th>
-                            <th style={{ textAlign: 'center' }}>In Stock</th>
-                            <th style={{ textAlign: 'right' }}>Qty to Move</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {storeSuggestions.map((s, idx) => (
-                            <tr key={`${s.articleNo}-${idx}`}>
-                              <td>
-                                <div style={{ fontWeight: 700, color: '#1C1917' }}>{s.articleNo}</div>
-                                {s.urgency === 'HIGH' && <div style={{ color: '#ef4444', fontSize: '10px' }}>Stock Alert</div>}
-                              </td>
-                              <td>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                  <ArrowRight size={14} color="#64748b" />
-                                  <span>{s.fromStore}</span>
-                                </div>
-                              </td>
-                              <td style={{ textAlign: 'center', color: '#78716C' }}>
-                                {s.toCbs} units
-                              </td>
-                              <td style={{ textAlign: 'right' }}>
-                                <div style={{ fontWeight: 800, color: '#4A7C59', fontSize: '15px' }}>
-                                  +{s.recommendedQty}
-                                </div>
-                              </td>
+                      <div className="table-responsive">
+                        <table className="enterprise-table" style={{ background: 'rgba(212, 168, 90, 0.06)', borderRadius: '12px' }}>
+                          <thead>
+                            <tr>
+                              <th>SKU / Article</th>
+                              <th>From Store</th>
+                              <th style={{ textAlign: 'center' }}>In Stock</th>
+                              <th style={{ textAlign: 'right' }}>Qty to Move</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {storeSuggestions.map((s, idx) => (
+                              <tr key={`${s.articleNo}-${idx}`}>
+                                <td>
+                                  <div style={{ fontWeight: 700, color: '#1C1917' }}>{s.articleNo}</div>
+                                  {s.urgency === 'HIGH' && <div style={{ color: '#ef4444', fontSize: '10px' }}>Stock Alert</div>}
+                                </td>
+                                <td>
+                                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                      <ArrowRight size={14} color="#64748b" />
+                                      <span style={{ fontWeight: 600 }}>{s.fromStore}</span>
+                                    </div>
+                                    {s.fromAsm && s.fromAsm !== 'N/A' && (
+                                      <span style={{ fontSize: '10px', color: '#94a3b8', paddingLeft: '22px' }}>
+                                        {s.fromAsm}
+                                      </span >
+                                    )}
+                                  </div>
+                                </td>
+                                <td style={{ textAlign: 'center', color: '#78716C' }}>
+                                  {s.toCbs} units
+                                </td>
+                                <td style={{ textAlign: 'right' }}>
+                                  <div style={{ fontWeight: 800, color: '#4A7C59', fontSize: '15px' }}>
+                                    +{s.recommendedQty}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                       
                       <div style={{ 
                         marginTop: '16px', 

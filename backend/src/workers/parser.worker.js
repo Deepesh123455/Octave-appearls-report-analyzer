@@ -26,7 +26,8 @@ const rowSchema = z.object({
   netSlsQty: z.number().default(0),
   saleThruPercent: z.number().default(0),
   gitQty: z.number().default(0),
-  cbsQty: z.number().default(0)
+  cbsQty: z.number().default(0),
+  asm: z.string().optional().default('N/A')
 })
 
 const JUNK_PATTERNS = [
@@ -165,8 +166,9 @@ const processFile = (buffer) => {
     sec:   getIdx(headers, 'Section Name', ['section name', 'section']),
     sub:   getIdx(headers, 'Sub Section Name', ['sub section', 'sub-section', 'subsection']),
     art:   isConsolidated
-             ? getIdx(headers, 'Article No', ['article no', 'articleno', 'article', 'asm', 'sku', 'code'])
-             : getIdx(headers, 'Asm', ['asm', 'article no', 'article', 'sku', 'code']),
+             ? getIdx(headers, 'Article No', ['article no', 'articleno', 'article', 'sku', 'code'])
+             : getIdx(headers, 'Article No', ['article no', 'article', 'sku', 'code']),
+    asm:   getIdx(headers, 'ASM', ['area sales manager', 'manager']),
     color: getIdx(headers, 'Color Name', ['color name', 'colour name', 'color', 'col']),
     cat:   isConsolidated
              ? getIdx(headers, 'Category', ['category', 'cat', 'group'])
@@ -356,6 +358,7 @@ const processFile = (buffer) => {
         saleThruPercent: parseNumber(row[idxMap.thr], true),
         gitQty:          idxMap.git >= 0 ? parseNumber(row[idxMap.git]) : 0,
         cbsQty:          idxMap.cbs >= 0 ? parseNumber(row[idxMap.cbs]) : 0,
+        asm:             idxMap.asm >= 0 && row[idxMap.asm] ? String(row[idxMap.asm]).trim() : 'N/A',
       }
 
       // DEBUG: Log first few objects to verify fields

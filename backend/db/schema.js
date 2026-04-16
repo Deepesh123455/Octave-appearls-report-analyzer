@@ -15,6 +15,7 @@ export const inventorySnapshots = pgTable('inventory_snapshots', {
   gitQty: integer('git_qty').default(0),
   netSlsQty: integer('net_sls_qty').default(0),
   saleThruPct: real('sale_thru_pct').default(0),
+  asm: varchar('asm', { length: 255 }),
 }, (t) => ({
   unq: unique('inventory_snapshots_unique_idx').on(t.reportDate, t.locationName, t.articleNo, t.colorName)
 }));

@@ -39,7 +39,8 @@ class InventoryRepository {
           cbsQty: Number(row.cbsQty || 0),
           gitQty: Number(row.gitQty || 0),
           netSlsQty: Number(row.netSlsQty || 0),
-          saleThruPct: Number(row.saleThruPercent || row.saleThruPct || 0)
+          saleThruPct: Number(row.saleThruPercent || row.saleThruPct || 0),
+          asm: row.asm ? String(row.asm).substring(0, 255) : null
         }))
         // Filter out rows where articleNo is just a category keyword (Mapping artifact)
         .filter(row => {
@@ -72,7 +73,8 @@ class InventoryRepository {
               cbsQty: sql`EXCLUDED.cbs_qty`,
               gitQty: sql`EXCLUDED.git_qty`,
               netSlsQty: sql`EXCLUDED.net_sls_qty`,
-              saleThruPct: sql`EXCLUDED.sale_thru_pct`
+              saleThruPct: sql`EXCLUDED.sale_thru_pct`,
+              asm: sql`EXCLUDED.asm`
             }
           });
         
@@ -173,10 +175,11 @@ class InventoryRepository {
         gitQty:        sql`SUM(${inventorySnapshots.gitQty})`.as('gitQty'),
         netSlsQty:     sql`SUM(${inventorySnapshots.netSlsQty})`.as('netSlsQty'),
         saleThruPct:   sql`AVG(${inventorySnapshots.saleThruPct})`.as('saleThruPct'),
+        asm:           inventorySnapshots.asm,
       })
       .from(inventorySnapshots)
       .where(eq(inventorySnapshots.articleNo, articleNo))
-      .groupBy(inventorySnapshots.locationName, inventorySnapshots.sectionName, inventorySnapshots.colorName)
+      .groupBy(inventorySnapshots.locationName, inventorySnapshots.sectionName, inventorySnapshots.colorName, inventorySnapshots.asm)
       .orderBy(asc(inventorySnapshots.locationName));
     return result;
   }

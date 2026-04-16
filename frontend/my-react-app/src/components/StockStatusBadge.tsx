@@ -40,8 +40,12 @@ const StockStatusBadge: React.FC<StockStatusBadgeProps> = ({ status, inTransit }
         letterSpacing: '0.02em',
         backgroundColor: current.bg,
         color: current.color,
-        border: `1px solid ${current.color}30`
-      }}>
+        border: `1px solid ${current.color}35`,
+        display: 'flex',
+        alignItems: 'center',
+        gap: '4px'
+      }}
+      >
         {current.label}
       </span>
       {inTransit && (

@@ -66,6 +66,11 @@ export const fetchSKUDetail = async (articleNo: string) => {
   return response.data
 }
 
+export const resetInventoryData = async () => {
+  const response = await api.post('/api/inventory/reset')
+  return response.data
+}
+
 export const fetchTransferSuggestions = async () => {
   const response = await api.get('/api/inventory/transfers')
   return response.data

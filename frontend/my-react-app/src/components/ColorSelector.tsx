@@ -1,4 +1,5 @@
 import React from 'react';
+import SearchableFilter from './SearchableFilter';
 
 interface ColorSelectorProps {
   colors: string[];
@@ -14,23 +15,15 @@ const ColorSelector: React.FC<ColorSelectorProps> = ({
   label = 'Color',
 }) => {
   return (
-    <div className="filter-group">
-      <div className="filter-label">{label}</div>
-      <select
-        className="filter-select"
-        aria-label={label}
-        value={selectedColor}
-        onChange={(e) => onSelect(e.target.value)}
-      >
-        {colors.map((c) => (
-          <option key={c} value={c}>
-            {c === 'ALL' ? 'All Colors' : c}
-          </option>
-        ))}
-      </select>
-    </div>
+    <SearchableFilter
+      options={colors}
+      selected={selectedColor}
+      onSelect={onSelect}
+      label={label}
+      placeholder="Search colors..."
+      width="180px"
+    />
   );
 };
 
 export default ColorSelector;
-

@@ -42,35 +42,48 @@ import StoreSelector from '../components/StoreSelector';
 const deriveStatus = (
   obsQty: number,
   cbsQty: number,
-  gitQty: number,
   saleThruPct: number,
   netSlsQty: number
-): SKUStatus => {
+): { status: SKUStatus; reason: string } => {
   const stockOnHand = cbsQty || 0;
   const sales = netSlsQty || 0;
-  const velocity = sales; // Units sold in the period (assume 1 week)
+  const velocity = sales;
   const sellThru = saleThruPct || 0;
   
-  // 1. OUT OF STOCK (Opportunity Loss)
-  if (stockOnHand <= 0 && velocity > 0) return 'OUT_OF_STOCK';
+  // 1. OUT OF STOCK
+  if (stockOnHand <= 0 && velocity > 0) {
+    return { status: 'OUT_OF_STOCK', reason: "Zero stock detected while active sales demand exists. Lost sales opportunity." };
+  }
   
-  // 2. STAGNANT (Dead Capital)
-  if (velocity <= 0 && stockOnHand > 0) return 'STAGNANT';
+  // 2. STAGNANT
+  if (velocity <= 0 && stockOnHand > 0) {
+    return { status: 'STAGNANT', reason: "No sales recorded in this period. Stock is immobile and tying up capital." };
+  }
   
   // 3. Velocity-Based Coverage (Weeks of Stock)
   if (velocity > 0) {
     const wos = stockOnHand / velocity;
     
-    if (wos < 0.8) return 'CRITICAL';  // Less than 1 week coverage
-    if (wos < 1.8) return 'LOW_STOCK'; // Less than 2 weeks coverage
-    if (wos > 10) return 'OVERSTOCK';  // More than 10 weeks coverage
+    if (wos < 0.8) {
+      return { status: 'CRITICAL', reason: `Dangerously low stock lasts only ${wos.toFixed(1)} weeks. Refill immediately.` };
+    }
+    if (wos < 1.8) {
+      return { status: 'LOW_STOCK', reason: `Stock depleting fast with ${wos.toFixed(1)} weeks of coverage. Replenishment required.` };
+    }
+    if (wos > 10) {
+      return { status: 'OVERSTOCK', reason: `Excessive stock on hand. Current sales velocity will take >10 weeks to clear.` };
+    }
   }
 
-  // 4. Fallback to Sell-Through for low-volume items
-  if (sellThru > 80 && stockOnHand < (obsQty * 0.2)) return 'CRITICAL';
-  if (sellThru < 10 && stockOnHand > (obsQty * 0.7)) return 'OVERSTOCK';
+  // 4. Fallback to Sell-Through
+  if (sellThru > 80 && stockOnHand < (obsQty * 0.2)) {
+    return { status: 'CRITICAL', reason: "Extremely high sell-through (80%+) with very low remaining stock." };
+  }
+  if (sellThru < 10 && stockOnHand > (obsQty * 0.7)) {
+    return { status: 'OVERSTOCK', reason: "Stagnant sell-through (<10%) while holding over 70% of opening inventory." };
+  }
 
-  return 'HEALTHY';
+  return { status: 'HEALTHY', reason: "Healthy stock-to-sales balance. Inventory levels are optimal for current demand." };
 };
 
 const DashboardPage: React.FC = () => {
@@ -85,6 +98,11 @@ const DashboardPage: React.FC = () => {
   const [confirmUploadOpen, setConfirmUploadOpen] = useState(false);
   const [selectedColor, setSelectedColor] = useState<string>('ALL');
   const [selectedStore, setSelectedStore] = useState<string>('ALL');
+  const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
+
+  const toggleRow = (key: string) => {
+    setExpandedRowKey(expandedRowKey === key ? null : key);
+  };
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -177,11 +195,15 @@ const DashboardPage: React.FC = () => {
   }, [detail, effectiveSelectedColor, effectiveSelectedStore]);
 
   const enrichedRows = React.useMemo<StoreBreakdown[]>(() => {
-    return (selectedRows || []).map((r) => ({
-      ...r,
-      status: deriveStatus(r.obsQty, r.cbsQty, r.gitQty, r.saleThruPct, r.netSlsQty),
-      inTransit: r.gitQty > 0,
-    }));
+    return (selectedRows || []).map((r) => {
+      const { status, reason } = deriveStatus(r.obsQty, r.cbsQty, r.saleThruPct, r.netSlsQty);
+      return {
+        ...r,
+        status,
+        statusReason: reason,
+        inTransit: r.gitQty > 0,
+      };
+    });
   }, [selectedRows]);
 
   const aggregatedRowsForChart = React.useMemo<StoreBreakdown[]>(() => {
@@ -213,6 +235,7 @@ const DashboardPage: React.FC = () => {
 
     return Array.from(byLoc.values()).map(item => {
       const avgSaleThru = item.netSlsQty > 0 ? item.saleThruWeightedSum / item.netSlsQty : 0;
+      const { status, reason } = deriveStatus(item.obsQty, item.cbsQty, avgSaleThru, item.netSlsQty);
       return {
         locationName: item.locationName,
         sectionName: 'N/A',
@@ -222,7 +245,8 @@ const DashboardPage: React.FC = () => {
         gitQty: item.gitQty,
         netSlsQty: item.netSlsQty,
         saleThruPct: avgSaleThru,
-        status: deriveStatus(item.obsQty, item.cbsQty, item.gitQty, avgSaleThru),
+        status,
+        statusReason: reason,
         inTransit: item.gitQty > 0,
       };
     });
@@ -241,7 +265,7 @@ const DashboardPage: React.FC = () => {
     const avgSaleThru = totalSales > 0 ? totalWeightedSaleThru / totalSales : 0;
     const storeCount = new Set(enrichedRows.map(r => r.locationName)).size;
 
-    const overallStatus = deriveStatus(totalObs, totalCbs, totalGit, avgSaleThru);
+    const { status: overallStatus, reason: overallReason } = deriveStatus(totalObs, totalCbs, avgSaleThru, totalSales);
 
     return {
       totalObs,
@@ -250,6 +274,7 @@ const DashboardPage: React.FC = () => {
       totalSales,
       avgSaleThru: Math.round(avgSaleThru * 10) / 10,
       overallStatus,
+      overallReason,
       inTransit: totalGit > 0,
       storeCount,
     };
@@ -298,6 +323,42 @@ const DashboardPage: React.FC = () => {
             <div className="dot pulse"></div>
             System Online: v1.5.0-LTS
           </div>
+          <button 
+            className="sidebar-reset-btn"
+            onClick={async () => {
+              if (window.confirm("ARE YOU SURE? This will permanently delete ALL uploaded inventory records. You will need to re-upload your Excel files.")) {
+                const { resetInventoryData } = await import('../api');
+                try {
+                  await resetInventoryData();
+                  window.location.reload();
+                } catch (err) {
+                  alert("Reset failed: " + err.message);
+                }
+              }
+            }}
+            style={{
+              marginTop: '1.5rem',
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              padding: '0.65rem',
+              border: '1.5px solid rgba(192, 57, 43, 0.2)',
+              background: 'rgba(192, 57, 43, 0.05)',
+              borderRadius: '0.75rem',
+              color: '#C0392B',
+              fontSize: '11px',
+              fontFamily: "'Outfit', sans-serif",
+              fontWeight: 700,
+              textTransform: 'uppercase',
+              letterSpacing: '0.05em',
+              cursor: 'pointer',
+              transition: 'all 0.2s'
+            }}
+          >
+            <RefreshCw size={14} /> Reset All Data
+          </button>
         </div>
       </aside>
 
@@ -348,7 +409,7 @@ const DashboardPage: React.FC = () => {
                   onSelect={setSelectedColor}
                   label="Color"
                 />
-                
+
                 <StoreSelector
                   stores={storeOptions}
                   selectedStore={effectiveSelectedStore}
@@ -472,40 +533,110 @@ const DashboardPage: React.FC = () => {
                       </thead>
                       <tbody>
                         <AnimatePresence mode="popLayout" initial={false}>
-                          {selectedRows.map((row) => (
-                            <motion.tr
-                              key={`${row.locationName}-${row.colorName}-${row.sectionName}`}
-                              layout
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              exit={{ opacity: 0 }}
-                              transition={{ duration: 0.15 }}
-                            >
-                              <td className="bold">{row.locationName}</td>
-                              <td>{row.colorName}</td>
-                              <td>{row.obsQty}</td>
-                              <td style={{ color: row.gitQty > 0 ? '#D4A85A' : 'inherit' }}>
-                                {row.gitQty > 0 ? `+${row.gitQty}` : '-'}
-                              </td>
-                              <td className="green-text">{row.netSlsQty}</td>
-                              <td>{row.cbsQty}</td>
-                              <td>
-                                <div className="progress-mini">
-                                  <div
-                                    className="progress-fill"
-                                    style={{
-                                      width: `${Math.min(row.saleThruPct, 100)}%`,
-                                      background: row.saleThruPct > 80 ? '#4A7C59' : row.saleThruPct > 40 ? '#B07D3A' : '#ef4444'
-                                    }}
-                                  />
-                                  <span className="progress-text">{row.saleThruPct}%</span>
-                                </div>
-                              </td>
-                              <td>
-                                <StockStatusBadge status={row.status} inTransit={row.inTransit} />
-                              </td>
-                            </motion.tr>
-                          ))}
+                          {enrichedRows.map((row) => {
+                            const rowKey = `${row.locationName}-${row.colorName}-${row.sectionName}`;
+                            const isExpanded = expandedRowKey === rowKey;
+                            
+                            return (
+                              <React.Fragment key={rowKey}>
+                                <motion.tr
+                                  layout
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1, backgroundColor: isExpanded ? 'rgba(212, 168, 90, 0.04)' : 'transparent' }}
+                                  exit={{ opacity: 0 }}
+                                  transition={{ duration: 0.15 }}
+                                  onClick={() => toggleRow(rowKey)}
+                                  className={isExpanded ? 'row-expanded' : ''}
+                                  style={{ cursor: 'pointer' }}
+                                >
+                                  <td className="bold">{row.locationName}</td>
+                                  <td>{row.colorName}</td>
+                                  <td>{row.obsQty}</td>
+                                  <td style={{ color: row.gitQty > 0 ? '#D4A85A' : 'inherit' }}>
+                                    {row.gitQty > 0 ? `+${row.gitQty}` : '-'}
+                                  </td>
+                                  <td className="green-text">{row.netSlsQty}</td>
+                                  <td>{row.cbsQty}</td>
+                                  <td>
+                                    <div className="progress-mini">
+                                      <div
+                                        className="progress-fill"
+                                        style={{
+                                          width: `${Math.min(row.saleThruPct, 100)}%`,
+                                          background: row.saleThruPct > 80 ? '#4A7C59' : row.saleThruPct > 40 ? '#B07D3A' : '#ef4444'
+                                        }}
+                                      />
+                                      <span className="progress-text">{row.saleThruPct}%</span>
+                                    </div>
+                                  </td>
+                                  <td>
+                                    <StockStatusBadge 
+                                      status={row.status} 
+                                      inTransit={row.inTransit} 
+                                    />
+                                  </td>
+                                </motion.tr>
+                                
+                                <AnimatePresence>
+                                  {isExpanded && (
+                                    <motion.tr
+                                      initial={{ opacity: 0, height: 0 }}
+                                      animate={{ opacity: 1, height: 'auto' }}
+                                      exit={{ opacity: 0, height: 0 }}
+                                      transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+                                      className="diagnostic-row"
+                                    >
+                                      <td colSpan={8} style={{ padding: 0 }}>
+                                        <div className="diagnostic-pane">
+                                          <div className="diagnostic-accent" style={{ 
+                                            backgroundColor: row.status === 'CRITICAL' || row.status === 'OUT_OF_STOCK' ? '#ef4444' : 
+                                                            row.status === 'OVERSTOCK' ? '#7c3aed' : 
+                                                            row.status === 'HEALTHY' ? '#059669' : '#78716c'
+                                          }} />
+                                          <div className="diagnostic-content">
+                                            <div className="diag-header">
+                                              <span className="diag-label">Intelligence Report</span>
+                                              <span className="diag-status">
+                                                Status: <strong style={{ color: 'var(--primary)' }}>{row.status.replace(/_/g, ' ')}</strong>
+                                              </span>
+                                            </div>
+                                            <div className="diag-body">
+                                              <p className="diag-reason">{row.statusReason}</p>
+                                              <div className="diag-stats">
+                                                <div className="diag-stat-item">
+                                                  <span>Net Velocity</span>
+                                                  <strong>{row.netSlsQty} units/period</strong>
+                                                </div>
+                                                <div className="diag-stat-separator" />
+                                                <div className="diag-stat-item">
+                                                  <span>Current Coverage</span>
+                                                  <strong>{row.netSlsQty > 0 ? (row.cbsQty / row.netSlsQty).toFixed(1) : '∞'} weeks</strong>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          
+                                          {row.asm && row.asm !== 'N/A' && (
+                                            <div style={{ 
+                                              marginTop: '1rem', 
+                                              paddingTop: '0.75rem', 
+                                              borderTop: '1px dashed rgba(212, 168, 90, 0.15)',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              gap: '8px'
+                                            }}>
+                                              <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#9CA3AF', fontWeight: 600 }}>Store Leadership:</span>
+                                              <span style={{ fontSize: '12px', fontWeight: 700, color: '#1C1917' }}>{row.asm}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </motion.tr>
+                                  )}
+                                </AnimatePresence>
+                              </React.Fragment>
+                            );
+                          })}
                         </AnimatePresence>
                       </tbody>
                     </table>
