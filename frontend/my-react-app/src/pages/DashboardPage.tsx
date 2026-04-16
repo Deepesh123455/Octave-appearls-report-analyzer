@@ -353,7 +353,8 @@ const DashboardPage: React.FC = () => {
                   await resetInventoryData();
                   window.location.reload();
                 } catch (err) {
-                  alert("Reset failed: " + err.message);
+                  const errorMessage = err instanceof Error ? err.message : String(err);
+                  alert("Reset failed: " + errorMessage);
                 }
               }
             }}
