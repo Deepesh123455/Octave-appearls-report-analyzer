@@ -28,7 +28,7 @@ const UploadPage: React.FC = () => {
     }, stepMs)
   }
 
-  const [reportDate, setReportDate] = useState(new Date().toISOString().split('T')[0])
+  const [reportDate] = useState(new Date().toISOString().split('T')[0])
 
   const handleUpload = async (selectedFile: File) => {
     setError(null)
@@ -95,16 +95,7 @@ const UploadPage: React.FC = () => {
           transition={{ delay: 0.1 }}
           className="portal-main-action-area"
         >
-          {/* Date Selector Section */}
-          <div className="date-selector-wrapper">
-            <label>Inventory Snapshot Date</label>
-            <input 
-              type="date" 
-              value={reportDate} 
-              onChange={(e) => setReportDate(e.target.value)}
-              className="premium-date-input"
-            />
-          </div>
+          {/* Date Selector removed for UI cleaner look as requested */}
 
           <motion.div
             className={`portal-glass-card ${isDragging ? 'dragging' : ''}`}
