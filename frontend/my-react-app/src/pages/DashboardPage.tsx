@@ -511,10 +511,6 @@ const DashboardPage: React.FC = () => {
                     <h3>Location-Level Granularity</h3>
                     <p>Detailed breakdown of stock and sales per store</p>
                   </div>
-                  <div className="status-legend">
-                    <div className="legend-item"><div className="dot critical"></div> Critical</div>
-                    <div className="legend-item"><div className="dot overstock"></div> Overstock</div>
-                  </div>
                 </div>
                 <div className="card-body no-padding">
                   <div className="table-responsive">
