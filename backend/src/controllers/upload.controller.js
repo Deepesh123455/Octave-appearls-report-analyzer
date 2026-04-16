@@ -12,7 +12,8 @@ class UploadController {
       }
 
       const fileName = req.file.originalname || 'unknown_file.csv'
-      const result = await dataService.processFileUpload(req.file.buffer, fileName)
+      const reportDate = req.body.reportDate
+      const result = await dataService.processFileUpload(req.file.buffer, fileName, reportDate)
       
       return res.status(200).json({
         success: true,
@@ -24,10 +25,11 @@ class UploadController {
         }
       })
     } catch (error) {
-      console.error('Upload error:', error)
+      console.error('SERVER UPLOAD ERROR:', error);
       return res.status(400).json({
         success: false,
-        error: error.message || 'Error processing file'
+        error: error.message || 'Error processing file',
+        details: error.stack
       })
     }
   }

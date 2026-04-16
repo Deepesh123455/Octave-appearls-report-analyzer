@@ -1,6 +1,8 @@
 import { Worker } from 'worker_threads'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import XLSX from 'xlsx'
+import AIService from './ai.service.js'
 import inventoryRepository from '../repositories/inventory.repository.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -14,25 +16,121 @@ class DataService {
   /**
    * Process uploaded file via Worker Thread
    */
-  async processFileUpload(fileBuffer, fileName) {
+  async processFileUpload(fileBuffer, fileName, reportDate) {
+    // 1. Pre-process headers and sample data for AI Mapping
+    let aiMappings = null;
+    try {
+      const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      
+      if (rows && rows.length > 0) {
+        // Find header row — STRICT matching for actual column headers, not filter descriptions
+        let headerIdx = -1;
+        for (let i = 0; i < Math.min(rows.length, 50); i++) {
+          const row = rows[i].map(c => String(c || '').toLowerCase().trim());
+          
+          // Skip rows that are filter descriptions (they contain "filter" as part of a long string)
+          const firstCell = String(rows[i][0] || '').toLowerCase();
+          if (firstCell.includes('filter') || firstCell.includes('additional')) continue;
+          
+          // Require at least 2 distinct Octave header keywords as separate cell values
+          const headerKeywords = ['obs qty', 'net sls qty', 'sale thru %', 'cbs qty', 'git qty', 'asm', 'location name', 'section name', 'article no'];
+          const matchCount = headerKeywords.filter(kw => row.includes(kw)).length;
+          if (matchCount >= 2) {
+            headerIdx = i;
+            break;
+          }
+        }
+        
+        if (headerIdx !== -1) {
+          const headers = rows[headerIdx];
+          const samples = rows.slice(headerIdx + 1, headerIdx + 16); // Send 15 rows for better analysis
+          aiMappings = await AIService.resolveMappings(headers, samples);
+          
+          // AI returns `headerRowIndex` relative to the slice we pass into the prompt:
+          // - `headers` are presented as "Row 0"
+          // - `samples` are presented as "Row 1..N"
+          // But the worker interprets `headerRowIndex` against the full sheet rows array.
+          // Offset it so the worker can correctly locate the header row in the original sheet.
+          if (aiMappings && typeof aiMappings.headerRowIndex === 'number') {
+            aiMappings.headerRowIndex = headerIdx + aiMappings.headerRowIndex;
+          } else if (aiMappings) {
+            aiMappings.headerRowIndex = headerIdx;
+          }
+          console.log('AI MAPPING RESULT:', JSON.stringify(aiMappings, null, 2));
+        }
+      }
+    } catch (err) {
+      console.warn('AI PRE-PROCESS FAIL:', err.message);
+    }
+
     return new Promise((resolve, reject) => {
       const worker = new Worker(WORKER_PATH, {
-        workerData: { fileBuffer }
+        workerData: { fileBuffer, aiMappings }
       })
 
-      worker.on('message', async (message) => {
-        if (message.error) {
+      let totalRecords = 0
+      let lastReportType = 'location'
+      let activeIngestions = 0
+      const chunkQueue = []
+      let workerFinished = false
+
+      const processQueue = async () => {
+        if (activeIngestions >= 5 || chunkQueue.length === 0) return
+
+        activeIngestions++
+        const { rows, reportDate } = chunkQueue.shift()
+        
+        try {
+          // Inject reportDate into each row for batching
+          const rowBatch = rows.map(r => ({ ...r, reportDate }))
+          await inventoryRepository.bulkInsert(rowBatch)
+          activeIngestions--
+          
+          if (workerFinished && activeIngestions === 0 && chunkQueue.length === 0) {
+            const logData = await inventoryRepository.logUpload(fileName, totalRecords)
+            this.reportType = lastReportType
+            resolve({ count: totalRecords, log: logData })
+          } else {
+            // Check if more can be processed
+            processQueue()
+          }
+        } catch (err) {
+          reject(err)
+        }
+      }
+
+      worker.on('message', (message) => {
+        if (message.type === 'ERROR') {
           reject(new Error(message.error))
-        } else {
-          // Store in repository
-          await inventoryRepository.bulkInsert(message.rows)
-          const logData = await inventoryRepository.logUpload(fileName, message.rows.length)
-          this.reportType = message.reportType || 'location'
-          resolve({ count: message.rows.length, log: logData })
+        } else if (message.type === 'DATA') {
+          totalRecords += message.rows.length
+          lastReportType = message.reportType
+          
+          // Add to queue and kick off processing
+          chunkQueue.push({ rows: message.rows, reportDate })
+          processQueue()
+
+          if (message.isLast) {
+            workerFinished = true
+            // If everything is already done, resolve now
+            if (activeIngestions === 0 && chunkQueue.length === 0) {
+              inventoryRepository.logUpload(fileName, totalRecords)
+                .then(logData => {
+                  this.reportType = lastReportType
+                  resolve({ count: totalRecords, log: logData })
+                })
+            }
+          }
         }
       })
 
-      worker.on('error', reject)
+      worker.on('error', (err) => {
+        console.error('Worker error:', err)
+        reject(err)
+      })
+      
       worker.on('exit', (code) => {
         if (code !== 0) reject(new Error(`Worker stopped with exit code ${code}`))
       })
@@ -40,16 +138,18 @@ class DataService {
   }
 
   /**
-   * Aggregate data for Treemap hierarchy
+   * Aggregate raw Supabase rows for Treemap hierarchy analysis.
    */
   async getTreemapData() {
     const rows = await inventoryRepository.getAll()
-    if (!rows.length) return []
+    if (!rows || !rows.length) return { data: [], reportType: this.reportType }
 
     const root = {}
 
+    // Process raw database rows into hierarchy
     rows.forEach(row => {
-      const { locationName, sectionName, subSectionName, category, articleNo, netSlsQty, saleThruPercent, gitQty, cbsQty } = row
+      // Map database field names to local analytics labels
+      const { locationName, sectionName, subSectionName, category, articleNo, netSlsQty, saleThruPct, gitQty, cbsQty } = row
 
       if (!root[locationName]) root[locationName] = { children: {} }
       const loc = root[locationName].children
@@ -68,16 +168,16 @@ class DataService {
       }
       
       const art = cat[articleNo]
-      art.value += netSlsQty
-      art.saleThruPercent += saleThruPercent
+      art.value += (netSlsQty || 0)
+      art.saleThruPercent += (saleThruPct || 0)
       art.count += 1
-      art.gitQty += gitQty
-      art.cbsQty += cbsQty
+      art.gitQty += (gitQty || 0)
+      art.cbsQty += (cbsQty || 0)
     })
 
     // Recursive helper to transform to ECharts expected format
     const transform = (node, name) => {
-      if (node.name) { // It's a leaf (Article No)
+      if (node.name) { // Leaf node (usually Article or Color)
         return {
           name: node.name,
           value: Math.max(0, node.value),
@@ -105,7 +205,8 @@ class DataService {
       }
     }
 
-    return { data: Object.entries(root).map(([name, node]) => transform(node, name)), reportType: this.reportType }
+    const data = Object.entries(root).map(([name, node]) => transform(node, name))
+    return { data, reportType: this.reportType }
   }
 }
 
