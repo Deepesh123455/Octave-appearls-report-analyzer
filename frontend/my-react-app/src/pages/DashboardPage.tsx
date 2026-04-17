@@ -11,7 +11,6 @@ import {
   ChevronRight,
   RefreshCw,
   Zap,
-  Box,
   Truck,
   Menu,
   X
