@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Package, 
-  ArrowRight, 
-  ChevronDown, 
-  ChevronRight, 
-  Printer, 
-  FileText, 
+import {
+  Package,
+  ArrowRight,
+  ChevronDown,
+  ChevronRight,
+  Printer,
+  FileText,
   Truck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -31,10 +31,10 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
   const sortedStores = Object.keys(groups).sort((a, b) => {
     const aUrgent = groups[a].some(s => s.urgency === 'HIGH');
     const bUrgent = groups[b].some(s => s.urgency === 'HIGH');
-    
+
     if (aUrgent && !bUrgent) return -1;
     if (!aUrgent && bUrgent) return 1;
-    
+
     return a.localeCompare(b);
   });
 
@@ -73,19 +73,19 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
           const hasHighUrgency = storeSuggestions.some(s => s.urgency === 'HIGH');
 
           return (
-            <motion.div 
-              key={storeName} 
+            <motion.div
+              key={storeName}
               className="manifest-folder"
               initial={hasHighUrgency ? { y: -5, opacity: 0 } : false}
               animate={hasHighUrgency ? { y: 0, opacity: 1 } : false}
               style={{
-              background: hasHighUrgency ? 'linear-gradient(to right, rgba(239, 68, 68, 0.08), rgba(255, 255, 255, 0.02))' : 'rgba(255, 255, 255, 0.02)',
-              border: `1px solid ${hasHighUrgency ? 'rgba(239, 68, 68, 0.5)' : 'var(--ent-border)'}`,
-              boxShadow: hasHighUrgency ? '0 4px 20px rgba(239, 68, 68, 0.15)' : 'none',
-              borderRadius: '16px',
-              overflow: 'hidden'
-            }}>
-              <button 
+                background: hasHighUrgency ? 'linear-gradient(to right, rgba(239, 68, 68, 0.08), rgba(255, 255, 255, 0.02))' : 'rgba(255, 255, 255, 0.02)',
+                border: `1px solid ${hasHighUrgency ? 'rgba(239, 68, 68, 0.5)' : 'var(--ent-border)'}`,
+                boxShadow: hasHighUrgency ? '0 4px 20px rgba(239, 68, 68, 0.15)' : 'none',
+                borderRadius: '16px',
+                overflow: 'hidden'
+              }}>
+              <button
                 onClick={() => setExpandedStore(isExpanded ? null : storeName)}
                 style={{
                   width: '100%',
@@ -98,39 +98,39 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                   textAlign: 'left'
                 }}
               >
-                <motion.div 
+                <motion.div
                   className="folder-icon"
                   animate={hasHighUrgency ? { scale: [1, 1.05, 1], rotate: [0, -3, 3, 0] } : {}}
                   transition={{ duration: 0.5, repeat: hasHighUrgency ? Infinity : 0, repeatDelay: 3 }}
                   style={{
-                  width: '40px',
-                  height: '40px',
-                  background: hasHighUrgency ? 'rgba(239, 68, 68, 0.15)' : 'rgba(212, 168, 90, 0.12)',
-                  borderRadius: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  marginRight: '16px',
-                  color: hasHighUrgency ? '#ef4444' : 'var(--ent-accent)'
-                }}>
+                    width: '40px',
+                    height: '40px',
+                    background: hasHighUrgency ? 'rgba(239, 68, 68, 0.15)' : 'rgba(212, 168, 90, 0.12)',
+                    borderRadius: '10px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginRight: '16px',
+                    color: hasHighUrgency ? '#ef4444' : 'var(--ent-accent)'
+                  }}>
                   <Truck size={20} />
                 </motion.div>
-                
+
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: hasHighUrgency ? '#ef4444' : '#1C1917' }}>
-                      To: {storeName}
+                      Destination: {storeName}
                     </h4>
                     {hasHighUrgency && (
-                      <motion.span 
+                      <motion.span
                         animate={{ opacity: [1, 0.6, 1], scale: [1, 1.05, 1] }}
                         transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
-                        style={{ 
-                          background: '#ef4444', 
-                          color: 'white', 
-                          fontSize: '10px', 
-                          padding: '3px 8px', 
-                          borderRadius: '4px', 
+                        style={{
+                          background: '#ef4444',
+                          color: 'white',
+                          fontSize: '10px',
+                          padding: '3px 8px',
+                          borderRadius: '4px',
                           fontWeight: 800,
                           boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
                           letterSpacing: '0.05em'
@@ -140,10 +140,10 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                     )}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--ent-text-muted)', marginTop: '2px' }}>
-                    Receiving {storeSuggestions.length} items • Total {totalQty} units
+                    Incoming Transfer: {storeSuggestions.length} SKUs • {totalQty} units total
                     {storeSuggestions[0].toAsm && storeSuggestions[0].toAsm !== 'N/A' && (
                       <span style={{ color: 'var(--primary)', fontWeight: 600, marginLeft: '8px' }}>
-                        • Manager: {storeSuggestions[0].toAsm}
+                        • Receiving Manager: {storeSuggestions[0].toAsm}
                       </span>
                     )}
                   </div>
@@ -165,7 +165,7 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                     exit={{ height: 0 }}
                     style={{ overflow: 'hidden' }}
                   >
-                  <div style={{ padding: '0 20px 20px' }}>
+                    <div style={{ padding: '0 20px 20px' }}>
                       <div className="table-responsive">
                         <table className="enterprise-table" style={{ background: 'rgba(212, 168, 90, 0.06)', borderRadius: '12px' }}>
                           <thead>
@@ -189,13 +189,21 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                                 <td>
                                   <div style={{ display: 'flex', flexDirection: 'column' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                      <ArrowRight size={14} color="#64748b" />
+                                      <span style={{
+                                        background: '#f1f5f9',
+                                        color: '#475569',
+                                        fontSize: '10px',
+                                        padding: '2px 6px',
+                                        borderRadius: '4px',
+                                        fontWeight: 700,
+                                        letterSpacing: '0.05em'
+                                      }}>SOURCE</span>
                                       <span style={{ fontWeight: 600 }}>{s.fromStore}</span>
                                     </div>
                                     {s.fromAsm && s.fromAsm !== 'N/A' && (
-                                      <span style={{ fontSize: '10px', color: '#94a3b8', paddingLeft: '22px' }}>
-                                        {s.fromAsm}
-                                      </span >
+                                      <span style={{ fontSize: '10px', color: '#94a3b8', paddingLeft: '60px' }}>
+                                        Donor Manager: {s.fromAsm}
+                                      </span>
                                     )}
                                   </div>
                                 </td>
@@ -212,12 +220,12 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                           </tbody>
                         </table>
                       </div>
-                      
-                      <div style={{ 
-                        marginTop: '16px', 
-                        display: 'flex', 
-                        justifyContent: 'flex-end', 
-                        gap: '12px' 
+
+                      <div style={{
+                        marginTop: '16px',
+                        display: 'flex',
+                        justifyContent: 'flex-end',
+                        gap: '12px'
                       }}>
                         <button className="btn-primary-lite" style={{ padding: '8px 16px', fontSize: '12px' }}>
                           <FileText size={14} />
