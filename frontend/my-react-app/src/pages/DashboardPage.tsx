@@ -158,12 +158,20 @@ const DashboardPage: React.FC = () => {
       const loadDetail = async () => {
         setDetailLoading(true);
         try {
-          const res = await fetchSKUDetail(selectedSku);
-          if (res.success) {
-            setDetail(res.data);
+          // Fetch BOTH detail and SKU-specific transfers
+          const [detailRes, transferRes] = await Promise.all([
+            fetchSKUDetail(selectedSku),
+            fetchTransferSuggestions(selectedSku)
+          ]);
+
+          if (detailRes.success) {
+            setDetail(detailRes.data);
+          }
+          if (transferRes.success) {
+            setTransfers(transferRes.data);
           }
         } catch (err) {
-          console.error('Load SKU detail error:', err);
+          console.error('Load SKU data error:', err);
         } finally {
           setDetailLoading(false);
         }
