@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
+// 
 import {
   Package,
-  ArrowRight,
+
   ChevronDown,
   ChevronRight,
   Printer,
