@@ -11,7 +11,6 @@ import {
   ChevronRight,
   RefreshCw,
   Zap,
-  Box,
   Truck,
   Menu,
   X
@@ -49,21 +48,21 @@ const deriveStatus = (
   const sales = netSlsQty || 0;
   const velocity = sales;
   const sellThru = saleThruPct || 0;
-  
+
   // 1. OUT OF STOCK
   if (stockOnHand <= 0 && velocity > 0) {
     return { status: 'OUT_OF_STOCK', reason: "Zero stock detected while active sales demand exists. Lost sales opportunity." };
   }
-  
+
   // 2. STAGNANT
   if (velocity <= 0 && stockOnHand > 0) {
     return { status: 'STAGNANT', reason: "No sales recorded in this period. Stock is immobile and tying up capital." };
   }
-  
+
   // 3. Velocity-Based Coverage (Weeks of Stock)
   if (velocity > 0) {
     const wos = stockOnHand / velocity;
-    
+
     if (wos < 0.8) {
       return { status: 'CRITICAL', reason: `Dangerously low stock lasts only ${wos.toFixed(1)} weeks. Refill immediately.` };
     }
@@ -136,7 +135,7 @@ const DashboardPage: React.FC = () => {
       // Trigger a database reset in the background
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       navigator.sendBeacon(`${apiUrl}/api/inventory/reset`);
-      
+
       e.preventDefault();
       e.returnValue = ''; // Required for Chrome confirmation
       return '';
@@ -352,7 +351,7 @@ const DashboardPage: React.FC = () => {
             <div className="dot pulse"></div>
             System Online: v1.5.0-LTS
           </div>
-          <button 
+          <button
             className="sidebar-reset-btn"
             onClick={async () => {
               if (window.confirm("ARE YOU SURE? This will permanently delete ALL uploaded inventory records. You will need to re-upload your Excel files.")) {
@@ -470,13 +469,6 @@ const DashboardPage: React.FC = () => {
         {/* KPI Strip */}
         <div className="kpi-strip">
           <KPICard
-            label="Total Opening Stock"
-            value={summary?.totalObs || 0}
-            icon={<Box size={20} />}
-            trend={summary?.totalSales && summary?.totalObs ? `${Math.round((summary.totalSales / summary.totalObs) * 100)}%` : null}
-            tooltip="Sum of all units across stores at start of report period"
-          />
-          <KPICard
             label="Closing Stock"
             value={summary?.totalCbs || 0}
             icon={<Package size={20} />}
@@ -549,7 +541,6 @@ const DashboardPage: React.FC = () => {
                         <tr>
                           <th>Location</th>
                           <th>Color</th>
-                          <th>Opening Stock</th>
                           <th>In Transit</th>
                           <th>Net Sales</th>
                           <th>Current Closing</th>
@@ -562,7 +553,7 @@ const DashboardPage: React.FC = () => {
                           {enrichedRows.map((row) => {
                             const rowKey = `${row.locationName}-${row.colorName}-${row.sectionName}`;
                             const isExpanded = expandedRowKey === rowKey;
-                            
+
                             return (
                               <React.Fragment key={rowKey}>
                                 <motion.tr
@@ -577,7 +568,6 @@ const DashboardPage: React.FC = () => {
                                 >
                                   <td className="bold">{row.locationName}</td>
                                   <td>{row.colorName}</td>
-                                  <td>{row.obsQty}</td>
                                   <td style={{ color: row.gitQty > 0 ? '#D4A85A' : 'inherit' }}>
                                     {row.gitQty > 0 ? `+${row.gitQty}` : '-'}
                                   </td>
@@ -596,13 +586,13 @@ const DashboardPage: React.FC = () => {
                                     </div>
                                   </td>
                                   <td>
-                                    <StockStatusBadge 
-                                      status={row.status} 
-                                      inTransit={row.inTransit} 
+                                    <StockStatusBadge
+                                      status={row.status}
+                                      inTransit={row.inTransit}
                                     />
                                   </td>
                                 </motion.tr>
-                                
+
                                 <AnimatePresence>
                                   {isExpanded && (
                                     <motion.tr
@@ -614,10 +604,10 @@ const DashboardPage: React.FC = () => {
                                     >
                                       <td colSpan={8} style={{ padding: 0 }}>
                                         <div className="diagnostic-pane">
-                                          <div className="diagnostic-accent" style={{ 
-                                            backgroundColor: row.status === 'CRITICAL' || row.status === 'OUT_OF_STOCK' ? '#ef4444' : 
-                                                            row.status === 'OVERSTOCK' ? '#7c3aed' : 
-                                                            row.status === 'HEALTHY' ? '#059669' : '#78716c'
+                                          <div className="diagnostic-accent" style={{
+                                            backgroundColor: row.status === 'CRITICAL' || row.status === 'OUT_OF_STOCK' ? '#ef4444' :
+                                              row.status === 'OVERSTOCK' ? '#7c3aed' :
+                                                row.status === 'HEALTHY' ? '#059669' : '#78716c'
                                           }} />
                                           <div className="diagnostic-content">
                                             <div className="diag-header">
@@ -641,11 +631,11 @@ const DashboardPage: React.FC = () => {
                                               </div>
                                             </div>
                                           </div>
-                                          
+
                                           {row.asm && row.asm !== 'N/A' && (
-                                            <div style={{ 
-                                              marginTop: '1rem', 
-                                              paddingTop: '0.75rem', 
+                                            <div style={{
+                                              marginTop: '1rem',
+                                              paddingTop: '0.75rem',
                                               borderTop: '1px dashed rgba(212, 168, 90, 0.15)',
                                               display: 'flex',
                                               alignItems: 'center',
