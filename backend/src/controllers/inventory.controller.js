@@ -96,11 +96,19 @@ class InventoryController {
 
   /**
    * GET /api/inventory/transfers
-   * Returns cross-store transfer suggestions sorted by urgency.
+   * Returns cross-store transfer suggestions. Supports ?articleNo=... for SKU-specific recommendations.
    */
   async getTransferSuggestions(req, res) {
     try {
-      const suggestions = await skuService.getTransferSuggestions();
+      const { articleNo } = req.query;
+      let suggestions;
+
+      if (articleNo) {
+        suggestions = await skuService.getSKUTransferRecommendations(decodeURIComponent(articleNo));
+      } else {
+        suggestions = await skuService.getTransferSuggestions();
+      }
+
       return res.status(200).json({ success: true, data: suggestions, count: suggestions.length });
     } catch (error) {
       console.error('Transfer suggestions error:', error);

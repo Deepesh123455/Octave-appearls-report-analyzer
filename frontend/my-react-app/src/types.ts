@@ -67,4 +67,6 @@ export type TransferSuggestion = {
   urgency: 'HIGH' | 'MEDIUM' | 'LOW'
   fromAsm?: string
   toAsm?: string
+  colorName?: string
+  category?: string
 }

@@ -97,24 +97,34 @@ class InventoryRepository {
   }
 
   /**
+   * Get the most recent report date available in the database.
+   */
+  async getLatestReportDate() {
+    const result = await db
+      .select({ maxDate: sql`MAX(${inventorySnapshots.reportDate})` })
+      .from(inventorySnapshots);
+    return result[0]?.maxDate || null;
+  }
+
+  /**
    * Retrieve inventory data based on filters.
-   * Returns data in camelCase format exactly like the old local array.
-   * @param {Object} filters - Optional filters (locationName, sectionName, etc.)
+   * Defaults to the latest report date if none is provided.
    */
   async getInventoryDataForProcessing(filters = {}) {
-    const query = db.select().from(inventorySnapshots);
+    const latestDate = filters.reportDate || await this.getLatestReportDate();
     
+    const query = db.select().from(inventorySnapshots);
     const conditions = [];
+    
+    if (latestDate) conditions.push(eq(inventorySnapshots.reportDate, latestDate));
     if (filters.locationName) conditions.push(eq(inventorySnapshots.locationName, filters.locationName));
     if (filters.sectionName) conditions.push(eq(inventorySnapshots.sectionName, filters.sectionName));
-    if (filters.reportDate) conditions.push(eq(inventorySnapshots.reportDate, filters.reportDate));
 
     if (conditions.length > 0) {
       query.where(and(...conditions));
     }
 
-    const results = await query;
-    return results;
+    return await query;
   }
 
   /**
@@ -161,14 +171,17 @@ class InventoryRepository {
   }
 
   /**
-   * Get all rows for a specific SKU (articleNo), across all stores.
-   * Aggregates per (locationName, sectionName) to reduce row count.
+   * Get all rows for a specific SKU (articleNo) on a specific date.
+   * Defaults to latest date if not specified.
    */
-  async getSKUDetail(articleNo) {
-    const result = await db
+  async getSKUDetail(articleNo, reportDate = null) {
+    const targetDate = reportDate || await this.getLatestReportDate();
+    
+    const query = db
       .select({
         locationName:  inventorySnapshots.locationName,
         sectionName:   inventorySnapshots.sectionName,
+        category:      inventorySnapshots.category,
         colorName:     inventorySnapshots.colorName,
         obsQty:        sql`SUM(${inventorySnapshots.obsQty})`.as('obsQty'),
         cbsQty:        sql`SUM(${inventorySnapshots.cbsQty})`.as('cbsQty'),
@@ -178,10 +191,14 @@ class InventoryRepository {
         asm:           inventorySnapshots.asm,
       })
       .from(inventorySnapshots)
-      .where(eq(inventorySnapshots.articleNo, articleNo))
-      .groupBy(inventorySnapshots.locationName, inventorySnapshots.sectionName, inventorySnapshots.colorName, inventorySnapshots.asm)
+      .where(and(
+        eq(inventorySnapshots.articleNo, articleNo),
+        targetDate ? eq(inventorySnapshots.reportDate, targetDate) : sql`TRUE`
+      ))
+      .groupBy(inventorySnapshots.locationName, inventorySnapshots.sectionName, inventorySnapshots.category, inventorySnapshots.colorName, inventorySnapshots.asm)
       .orderBy(asc(inventorySnapshots.locationName));
-    return result;
+
+    return await query;
   }
 }
 

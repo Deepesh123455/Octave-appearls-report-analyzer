@@ -28,7 +28,15 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
     return map;
   }, [suggestions]);
 
-  const sortedStores = Object.keys(groups).sort();
+  const sortedStores = Object.keys(groups).sort((a, b) => {
+    const aUrgent = groups[a].some(s => s.urgency === 'HIGH');
+    const bUrgent = groups[b].some(s => s.urgency === 'HIGH');
+    
+    if (aUrgent && !bUrgent) return -1;
+    if (!aUrgent && bUrgent) return 1;
+    
+    return a.localeCompare(b);
+  });
 
   if (suggestions.length === 0) {
     return (
@@ -65,9 +73,15 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
           const hasHighUrgency = storeSuggestions.some(s => s.urgency === 'HIGH');
 
           return (
-            <div key={storeName} className="manifest-folder" style={{
-              background: 'rgba(255, 255, 255, 0.02)',
-              border: `1px solid ${hasHighUrgency ? 'rgba(239, 68, 68, 0.2)' : 'var(--ent-border)'}`,
+            <motion.div 
+              key={storeName} 
+              className="manifest-folder"
+              initial={hasHighUrgency ? { y: -5, opacity: 0 } : false}
+              animate={hasHighUrgency ? { y: 0, opacity: 1 } : false}
+              style={{
+              background: hasHighUrgency ? 'linear-gradient(to right, rgba(239, 68, 68, 0.08), rgba(255, 255, 255, 0.02))' : 'rgba(255, 255, 255, 0.02)',
+              border: `1px solid ${hasHighUrgency ? 'rgba(239, 68, 68, 0.5)' : 'var(--ent-border)'}`,
+              boxShadow: hasHighUrgency ? '0 4px 20px rgba(239, 68, 68, 0.15)' : 'none',
               borderRadius: '16px',
               overflow: 'hidden'
             }}>
@@ -78,16 +92,20 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                   padding: '20px',
                   display: 'flex',
                   alignItems: 'center',
-                  background: isExpanded ? 'rgba(212, 168, 90, 0.06)' : 'transparent',
+                  background: isExpanded ? (hasHighUrgency ? 'rgba(239, 68, 68, 0.04)' : 'rgba(212, 168, 90, 0.06)') : 'transparent',
                   border: 'none',
                   cursor: 'pointer',
                   textAlign: 'left'
                 }}
               >
-                <div className="folder-icon" style={{
+                <motion.div 
+                  className="folder-icon"
+                  animate={hasHighUrgency ? { scale: [1, 1.05, 1], rotate: [0, -3, 3, 0] } : {}}
+                  transition={{ duration: 0.5, repeat: hasHighUrgency ? Infinity : 0, repeatDelay: 3 }}
+                  style={{
                   width: '40px',
                   height: '40px',
-                    background: hasHighUrgency ? 'rgba(239, 68, 68, 0.1)' : 'rgba(212, 168, 90, 0.12)',
+                  background: hasHighUrgency ? 'rgba(239, 68, 68, 0.15)' : 'rgba(212, 168, 90, 0.12)',
                   borderRadius: '10px',
                   display: 'flex',
                   alignItems: 'center',
@@ -96,17 +114,29 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                   color: hasHighUrgency ? '#ef4444' : 'var(--ent-accent)'
                 }}>
                   <Truck size={20} />
-                </div>
+                </motion.div>
                 
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: '#1C1917' }}>
+                    <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 700, color: hasHighUrgency ? '#ef4444' : '#1C1917' }}>
                       To: {storeName}
                     </h4>
                     {hasHighUrgency && (
-                      <span style={{ background: '#ef4444', color: 'white', fontSize: '10px', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>
-                        URGENT
-                      </span>
+                      <motion.span 
+                        animate={{ opacity: [1, 0.6, 1], scale: [1, 1.05, 1] }}
+                        transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                        style={{ 
+                          background: '#ef4444', 
+                          color: 'white', 
+                          fontSize: '10px', 
+                          padding: '3px 8px', 
+                          borderRadius: '4px', 
+                          fontWeight: 800,
+                          boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
+                          letterSpacing: '0.05em'
+                        }}>
+                        URGENT ACTION
+                      </motion.span>
                     )}
                   </div>
                   <div style={{ fontSize: '12px', color: 'var(--ent-text-muted)', marginTop: '2px' }}>
@@ -151,7 +181,10 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                               <tr key={`${s.articleNo}-${idx}`}>
                                 <td>
                                   <div style={{ fontWeight: 700, color: '#1C1917' }}>{s.articleNo}</div>
-                                  {s.urgency === 'HIGH' && <div style={{ color: '#ef4444', fontSize: '10px' }}>Stock Alert</div>}
+                                  <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                                    {s.category && s.category !== 'N/A' ? `${s.category} • ` : ''}{s.colorName || 'No Color Info'}
+                                  </div>
+                                  {s.urgency === 'HIGH' && <div style={{ color: '#ef4444', fontSize: '10px', marginTop: '4px', fontWeight: 600 }}>STOCK ALERT</div>}
                                 </td>
                                 <td>
                                   <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -195,7 +228,7 @@ const TransferManifest: React.FC<TransferManifestProps> = ({ suggestions }) => {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
+            </motion.div>
           );
         })}
       </div>

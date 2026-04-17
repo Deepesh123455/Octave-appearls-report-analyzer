@@ -71,8 +71,9 @@ export const resetInventoryData = async () => {
   return response.data
 }
 
-export const fetchTransferSuggestions = async () => {
-  const response = await api.get('/api/inventory/transfers')
+export const fetchTransferSuggestions = async (articleNo?: string) => {
+  const params = articleNo ? { articleNo } : {}
+  const response = await api.get('/api/inventory/transfers', { params })
   return response.data
 }
 

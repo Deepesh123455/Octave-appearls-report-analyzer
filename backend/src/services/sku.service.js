@@ -38,7 +38,7 @@ export const classifyStatus = (row) => {
   if (saleThruPct > THRESHOLDS.STATIC_SELL_THRU_HIGH && stockOnHand < THRESHOLDS.CRITICAL_CBS) {
     return { primary: 'CRITICAL', inTransit };
   }
-  
+
   if (saleThruPct < THRESHOLDS.STATIC_SELL_THRU_LOW && stockOnHand > (THRESHOLDS.CRITICAL_CBS * 4)) {
     return { primary: 'OVERSTOCK', inTransit };
   }
@@ -65,15 +65,15 @@ class SKUService {
     let totalObs = 0, totalCbs = 0, totalGit = 0, totalSales = 0, saleThruSum = 0;
 
     const storeBreakdown = rows.map(row => {
-      const obsQty    = Number(row.obsQty    || 0);
-      const cbsQty    = Number(row.cbsQty    || 0);
-      const gitQty    = Number(row.gitQty    || 0);
+      const obsQty = Number(row.obsQty || 0);
+      const cbsQty = Number(row.cbsQty || 0);
+      const gitQty = Number(row.gitQty || 0);
       const netSlsQty = Number(row.netSlsQty || 0);
       const saleThruPct = Number(row.saleThruPct || 0);
 
-      totalObs   += obsQty;
-      totalCbs   += cbsQty;
-      totalGit   += gitQty;
+      totalObs += obsQty;
+      totalCbs += cbsQty;
+      totalGit += gitQty;
       totalSales += netSlsQty;
       saleThruSum += saleThruPct;
 
@@ -81,8 +81,8 @@ class SKUService {
 
       return {
         locationName: row.locationName,
-        sectionName:  row.sectionName,
-        colorName:    row.colorName,
+        sectionName: row.sectionName,
+        colorName: row.colorName,
         obsQty,
         cbsQty,
         gitQty,
@@ -119,115 +119,182 @@ class SKUService {
   }
 
   /**
-   * Find cross-store transfer opportunities for all SKUs.
-   * Returns an array of transfer suggestions sorted by recommended qty.
+   * Find cross-store transfer opportunities for all SKUs using the enterprise logic.
+   * Optimizes performance by fetching all data for the latest date in a single query.
    */
   async getTransferSuggestions() {
-    // Fetch all data grouped by SKU+location
-    const allRows = await inventoryRepository.getAll();
-    if (!allRows || allRows.length === 0) return [];
+    // 1. Fetch ALL data for the latest snapshot in one go
+    const latestData = await inventoryRepository.getInventoryDataForProcessing();
+    if (!latestData || latestData.length === 0) return [];
 
-    // Build a map: articleNo → [store rows]
+    // 2. Group by Article Number
     const skuMap = {};
-    for (const row of allRows) {
-      const key = String(row.articleNo || '').trim();
-      if (!key || key === 'N/A') continue;
-      if (!skuMap[key]) skuMap[key] = [];
-      skuMap[key].push({
-        ...row,
-        obsQty:    Number(row.obsQty    || 0),
-        cbsQty:    Number(row.cbsQty    || 0),
-        gitQty:    Number(row.gitQty    || 0),
-        netSlsQty: Number(row.netSlsQty || 0),
-      });
+    for (const row of latestData) {
+      const art = String(row.articleNo || '').trim();
+      if (!art || art === 'N/A') continue;
+      if (!skuMap[art]) skuMap[art] = [];
+      skuMap[art].push(row);
     }
 
-    const suggestions = [];
-
+    // 3. Process each SKU using the unified matching engine
+    let allSuggestions = [];
     for (const [articleNo, rows] of Object.entries(skuMap)) {
       if (rows.length < 2) continue;
+      const suggestions = this.computeEnterpriseMatches(articleNo, rows);
+      allSuggestions = allSuggestions.concat(suggestions);
+    }
 
-      // Skip transfer matching if this is consolidated data (labeled NETWORK_WIDE)
-      // or if locationName matches articleNo (indicates a mapping failure or total SKU view)
-      if (rows.some(r => r.locationName === "NETWORK_WIDE" || r.locationName === articleNo)) continue;
+    // 4. Sort and limit
+    return allSuggestions
+      .sort((a, b) => b.transferQty - a.transferQty)
+      .slice(0, TRANSFER.MAX_SUGGESTIONS);
+  }
 
-      // 1. Calculate SKU-wide average Stock-on-Hand (SOH) and Sales
-      const totalSOH = rows.reduce((acc, r) => acc + r.cbsQty + r.gitQty, 0);
-      const totalSales = rows.reduce((acc, r) => acc + r.netSlsQty, 0);
-      const avgSOH = totalSOH / rows.length;
-      
-      // 2. Identify Relative Senders and Receivers
-      const senders = [];
-      const receivers = [];
+  /**
+   * Generate stock transfer recommendations for a specific SKU based on exact enterprise logic.
+   * This is the "dynamic" real-time calculation requested.
+   */
+  async getSKUTransferRecommendations(articleNo) {
+    const rows = await inventoryRepository.getSKUDetail(articleNo);
+    if (!rows || rows.length < 2) return [];
 
-      for (const row of rows) {
-        const currentSOH = row.cbsQty + row.gitQty;
-        const currentSales = row.netSlsQty;
-        
-        // Sender Logic: 
-        // - Has > 1.4x the average SKU SOH OR has massive absolute surplus (>20)
-        // - And has at least 10 units in stock
-        const isRelativeOverstock = currentSOH > (avgSOH * 1.4) && currentSOH > 10;
-        const hasSurplus = currentSOH > (currentSales * 2) && currentSOH > 15;
+    return this.computeEnterpriseMatches(articleNo, rows);
+  }
 
-        if (isRelativeOverstock || hasSurplus) {
-          const surplus = Math.floor(currentSOH - (avgSOH * 0.8)); // Leave 80% of avg to sender
-          if (surplus > 5) {
-            senders.push({ ...row, surplus });
+  /**
+   * Unified Matching Engine implementing the exact enterprise prioritisation logic.
+   * Shared by both global and per-SKU calculation methods.
+   */
+  computeEnterpriseMatches(articleNo, rows) {
+    // Constants for enterprise logic
+    const DESIRED_STOCK_LEVEL = 8;
+    const SAFETY_STOCK = 5;
+    const RECEIVER_CBS_THRESHOLD = 5;
+    const DONOR_CBS_THRESHOLD = 8;
+    const HIGH_SALES_THRESHOLD = 10;
+
+    // 1. Identify Receivers (Deficit Stores)
+    const receivers = rows
+      .map(row => {
+        const cbsQty = Number(row.cbsQty || 0);
+        const gitQty = Number(row.gitQty || 0);
+        const netSlsQty = Number(row.netSlsQty || 0);
+        const saleThruPct = Number(row.saleThruPct || row.saleThruPercent || 0);
+
+        // Dynamic Demand: High if any sales exist, or good sell-thru
+        const wos = netSlsQty > 0 ? cbsQty / netSlsQty : Infinity;
+        const isHighDemand = (saleThruPct >= 20) || (netSlsQty > 0);
+        const isLowStock = wos < 4 || cbsQty <= 3;
+
+        if (isHighDemand && isLowStock) {
+          // Dynamic Desired Stock: Target 4 weeks of coverage, bounded 5 to 15
+          let targetStock = Math.max(5, Math.min(15, netSlsQty * 4));
+          // Boost target for hot items
+          if (saleThruPct >= 50) targetStock = Math.max(8, targetStock);
+
+          const trueDeficit = targetStock - (cbsQty + gitQty);
+          if (trueDeficit > 0) {
+            return { ...row, trueDeficit };
           }
-        } 
-        
-        // Receiver Logic:
-        // - Has < 0.6x the average SKU SOH OR absolute low stock (< 5)
-        const isRelativeLow = currentSOH < (avgSOH * 0.6);
-        const isAbsoluteLow = row.cbsQty < THRESHOLDS.CRITICAL_CBS;
+        }
+        return null;
+      })
+      .filter(Boolean);
 
-        if (isRelativeLow || isAbsoluteLow) {
-          const deficit = Math.max(Math.ceil(avgSOH * 1.2) - currentSOH, 5);
-          receivers.push({ ...row, deficit });
+    // 2. Identify Donors (Surplus Stores)
+    const donors = rows
+      .map(row => {
+        const cbsQty = Number(row.cbsQty || 0);
+        const netSlsQty = Number(row.netSlsQty || 0);
+        const saleThruPct = Number(row.saleThruPct || row.saleThruPercent || 0);
+
+        // Dynamic Supply: Donor if high WOS (>6 weeks), very low sales, or poor sell-thru
+        const wos = netSlsQty > 0 ? cbsQty / netSlsQty : Infinity;
+        const isLowDemand = (wos > 6) || (netSlsQty <= 2) || (saleThruPct < 15);
+        const isHighStock = cbsQty > 3; // Lower barrier to entry for donation
+
+        if (isLowDemand && isHighStock) {
+          // Dynamic Safety Stock: Retain 2 weeks of sales or minimum 3
+          const safetyStock = Math.max(3, netSlsQty * 2);
+          const availableToTransfer = cbsQty - safetyStock;
+
+          if (availableToTransfer > 0) {
+            return { ...row, availableToTransfer };
+          }
+        }
+        return null;
+      })
+      .filter(Boolean);
+
+    if (receivers.length === 0 || donors.length === 0) return [];
+
+    const recommendations = [];
+
+    // 3. Matching Engine (Priority Routing)
+    const donorPool = donors.map(d => ({ ...d }));
+
+    for (const receiver of receivers) {
+      let deficitToFill = receiver.trueDeficit;
+
+      // Priority 1: Intra-Region (Same ASM)
+      for (const donor of donorPool) {
+        if (deficitToFill <= 0) break;
+        if (donor.availableToTransfer <= 0) continue;
+        if (donor.locationName === receiver.locationName) continue;
+        if (donor.articleNo !== receiver.articleNo) continue; // Safety check
+        if (donor.colorName !== receiver.colorName) continue;
+        if (donor.asm !== receiver.asm) continue;
+
+        const transferQty = Math.min(deficitToFill, donor.availableToTransfer);
+        if (transferQty >= 3) {
+          recommendations.push({
+            fromStore: donor.locationName,
+            toStore: receiver.locationName,
+            articleNo,
+            colorName: receiver.colorName,
+            category: receiver.category || donor.category || 'N/A',
+            recommendedQty: transferQty,
+            toCbs: receiver.cbsQty,
+            urgency: receiver.cbsQty < 3 ? 'HIGH' : receiver.trueDeficit > 10 ? 'MEDIUM' : 'LOW',
+            isSameAsm: true,
+            fromAsm: donor.asm,
+            toAsm: receiver.asm
+          });
+          donor.availableToTransfer -= transferQty;
+          deficitToFill -= transferQty;
         }
       }
 
-      // 3. Match Senders to Receivers
-      for (const recv of receivers) {
-        // Find sender with most surplus
-        const bestSender = [...senders]
-          .filter(s => s.locationName !== recv.locationName)
-          .sort((a, b) => b.surplus - a.surplus)[0];
+      // Priority 2: Inter-Region (Different ASM)
+      for (const donor of donorPool) {
+        if (deficitToFill <= 0) break;
+        if (donor.availableToTransfer <= 0) continue;
+        if (donor.locationName === receiver.locationName) continue;
+        if (donor.colorName !== receiver.colorName) continue;
+        if (donor.asm === receiver.asm) continue;
 
-        if (!bestSender) continue;
-
-        const recommendedQty = Math.min(
-          Math.floor(bestSender.surplus * 0.7), // Move up to 70% of sender's surplus
-          recv.deficit
-        );
-
-        if (recommendedQty < 3) continue;
-
-        suggestions.push({
-          articleNo,
-          fromStore:    bestSender.locationName,
-          fromObs:      bestSender.obsQty,
-          fromSurplus:  bestSender.surplus,
-          toStore:      recv.locationName,
-          toCbs:        recv.cbsQty,
-          toDeficit:    recv.deficit,
-          recommendedQty,
-          urgency: recv.cbsQty < 3 ? 'HIGH' : recv.deficit > 10 ? 'MEDIUM' : 'LOW',
-          fromAsm: bestSender.asm,
-          toAsm: recv.asm
-        });
+        const transferQty = Math.min(deficitToFill, donor.availableToTransfer);
+        if (transferQty >= 3) {
+          recommendations.push({
+            fromStore: donor.locationName,
+            toStore: receiver.locationName,
+            articleNo,
+            colorName: receiver.colorName,
+            category: receiver.category || donor.category || 'N/A',
+            recommendedQty: transferQty,
+            toCbs: receiver.cbsQty,
+            urgency: receiver.cbsQty < 3 ? 'HIGH' : receiver.trueDeficit > 10 ? 'MEDIUM' : 'LOW',
+            isSameAsm: false,
+            fromAsm: donor.asm,
+            toAsm: receiver.asm
+          });
+          donor.availableToTransfer -= transferQty;
+          deficitToFill -= transferQty;
+        }
       }
     }
 
-    // Sort by urgency + qty
-    const urgencyOrder = { HIGH: 0, MEDIUM: 1, LOW: 2 };
-    return suggestions
-      .sort((a, b) =>
-        (urgencyOrder[a.urgency] - urgencyOrder[b.urgency]) ||
-        (b.recommendedQty - a.recommendedQty)
-      )
-      .slice(0, TRANSFER.MAX_SUGGESTIONS);
+    return recommendations;
   }
 }
 
