@@ -84,7 +84,7 @@ const UploadPage: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="portal-header"
         >
-          <div className="brand-tag">YOUR-COMPANY</div>
+          <div className="brand-tag">Octave Apperals</div>
           <h1>Intelligence at your fingertips</h1>
           <p>Securely upload your inventory report to unlock deep sales insights.</p>
         </motion.div>

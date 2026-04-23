@@ -10,7 +10,6 @@ import {
   ArrowRightLeft,
   ChevronRight,
   RefreshCw,
-  Zap,
   Truck,
   Menu,
   X
@@ -324,9 +323,9 @@ const DashboardPage: React.FC = () => {
       {/* ── Sidebar ─────────────────────────────────────────────────── */}
       <aside className={`enterprise-sidebar ${isSidebarOpen ? 'mobile-open' : ''}`}>
         <div className="brand-header">
-          <div className="brand-icon"><Zap size={20} fill="currentColor" /></div>
+          <div className="brand-icon"><img src="/Octave.jpeg" alt="Octave Apperals" style={{height: '20px', width: 'auto'}} /></div>
           <div>
-            <div className="brand-name">YOUR-COMPANY</div>
+            <div className="brand-name">Octave Apperals</div>
             <div className="brand-sub">SCM INTELLIGENCE</div>
           </div>
           <button className="mobile-close-btn" onClick={() => setIsSidebarOpen(false)}>
