@@ -326,7 +326,7 @@ const DashboardPage: React.FC = () => {
         <div className="brand-header">
           <div className="brand-icon"><Zap size={20} fill="currentColor" /></div>
           <div>
-            <div className="brand-name">OCTAVE</div>
+            <div className="brand-name">YOUR-COMPANY</div>
             <div className="brand-sub">SCM INTELLIGENCE</div>
           </div>
           <button className="mobile-close-btn" onClick={() => setIsSidebarOpen(false)}>
