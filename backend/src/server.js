@@ -4,6 +4,7 @@ import cors from 'cors'
 import { db } from '../db/config.js'
 import uploadRoutes from './routes/upload.routes.js'
 import inventoryRoutes from './routes/inventory.routes.js'
+import chatbotRoutes from './routes/chatbot.routes.js'
 import { inventorySnapshots } from '../db/schema.js'
 import { sql } from 'drizzle-orm'
 const app = express()
@@ -43,6 +44,7 @@ app.use(express.urlencoded({ extended: true }))
 // Routes
 app.use('/api', uploadRoutes)
 app.use('/api/inventory', inventoryRoutes)
+app.use('/api/chatbot', chatbotRoutes)
 
 // Reset endpoint: Clears all inventory data so user can re-upload with fixed mappings
 app.post('/api/inventory/reset', async (req, res) => {

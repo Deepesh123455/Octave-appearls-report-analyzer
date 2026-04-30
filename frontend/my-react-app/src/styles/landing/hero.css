@@ -1,0 +1,254 @@
+.lp-root {
+  background: var(--bg-main);
+  min-height: 100vh;
+  font-family: 'Inter', sans-serif;
+}
+
+/* ── Navbar ── */
+.landing-nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: rgba(240, 237, 232, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  z-index: 1000;
+  border-bottom: 1px solid rgba(212, 168, 90, 0.12);
+}
+
+.nav-container {
+  max-width: 1160px;
+  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2rem;
+}
+
+.nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.brand-mark {
+  width: 36px;
+  height: 36px;
+  background: var(--primary);
+  color: white;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Outfit', sans-serif;
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.brand-name {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+.brand-sub {
+  font-size: 0.65rem;
+  font-weight: 500;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.nav-upload-cta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: var(--text-main);
+  color: var(--text-on-dark);
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  letter-spacing: 0.01em;
+}
+
+.nav-upload-cta:hover {
+  background: var(--primary);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(176, 125, 58, 0.3);
+}
+
+/* ── Hero ── */
+.lp-hero {
+  padding-top: 150px;
+  padding-bottom: 5rem;
+  min-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+
+.lp-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 50% 0%, rgba(212, 168, 90, 0.12) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 40% at 10% 60%, rgba(107, 174, 130, 0.07) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.lp-hero-inner {
+  max-width: 1160px;
+  width: 100%;
+  padding: 0 2rem;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.lp-kicker {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--primary);
+  background: rgba(212, 168, 90, 0.1);
+  border: 1px solid rgba(212, 168, 90, 0.25);
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  margin-bottom: 1.75rem;
+}
+
+/* Pre-headline statement above the hero h1 */
+.lp-hero-pre-headline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(0.95rem, 1.8vw, 1.15rem);
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+  letter-spacing: 0.01em;
+}
+
+.lp-hero-pre-headline span {
+  color: var(--text-main);
+}
+
+.lp-hero-pre-headline svg {
+  color: var(--primary);
+}
+
+.lp-headline {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.4rem, 5vw, 3.75rem);
+  font-weight: 800;
+  line-height: 1.12;
+  color: var(--text-main);
+  margin-bottom: 1.5rem;
+  letter-spacing: -0.02em;
+}
+
+.lp-headline-accent {
+  color: var(--primary);
+}
+
+.lp-sub {
+  font-size: 1.05rem;
+  color: var(--text-muted);
+  max-width: 640px;
+  margin: 0 auto 3rem;
+  line-height: 1.75;
+}
+
+.lp-hero-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.lp-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.9rem 2rem;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.25s ease;
+  box-shadow: 0 4px 14px rgba(176, 125, 58, 0.3);
+  letter-spacing: 0.01em;
+}
+
+.lp-btn-primary:hover {
+  background: #92400E;
+  box-shadow: 0 8px 24px rgba(176, 125, 58, 0.4);
+}
+
+/* ── Stats bar ── */
+.lp-stats-bar {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 3.5rem 2rem 0;
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  margin-top: 4.5rem;
+}
+
+.lp-stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 1.5rem 1rem;
+  border-right: 1px solid var(--border);
+}
+
+.lp-stat:last-child {
+  border-right: none;
+}
+
+.lp-stat-value {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.lp-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-light);
+  text-align: center;
+  line-height: 1.4;
+}
+

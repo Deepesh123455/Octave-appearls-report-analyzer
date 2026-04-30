@@ -1,18 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard,
   Package,
-  ArrowLeft,
   TrendingUp,
-  AlertCircle,
-  ArrowRightLeft,
-  ChevronRight,
   RefreshCw,
-  Truck,
-  Menu,
-  X
+  Truck
 } from 'lucide-react';
 
 import {
@@ -29,13 +22,16 @@ import type {
   SKUStatus,
 } from '../types';
 
-import SKUSelector from '../components/SKUSelector';
-import StockStatusBadge from '../components/StockStatusBadge';
-import SalesBarChart from '../components/SalesBarChart';
-import SellThroughGauge from '../components/SellThroughGauge';
-import TransferManifest from '../components/TransferManifest';
-import ColorSelector from '../components/ColorSelector';
-import StoreSelector from '../components/StoreSelector';
+import Chatbot from '../components/Chatbot';
+
+// Sub-components
+import Sidebar from '../components/Dashboard/Sidebar';
+import DashboardHeader from '../components/Dashboard/DashboardHeader';
+import FilterToolbar from '../components/Dashboard/FilterToolbar';
+import KPICard from '../components/Dashboard/KPICard';
+import AnalyticsTab from '../components/Dashboard/AnalyticsTab';
+import LogisticsTab from '../components/Dashboard/LogisticsTab';
+import ConfirmUploadModal from '../components/Dashboard/ConfirmUploadModal';
 
 const deriveStatus = (
   obsQty: number,
@@ -97,6 +93,8 @@ const DashboardPage: React.FC = () => {
   const [selectedColor, setSelectedColor] = useState<string>('ALL');
   const [selectedStore, setSelectedStore] = useState<string>('ALL');
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   const toggleRow = (key: string) => {
     setExpandedRowKey(expandedRowKey === key ? null : key);
@@ -106,20 +104,13 @@ const DashboardPage: React.FC = () => {
   useEffect(() => {
     const init = async () => {
       try {
-        const [skuRes, transferRes] = await Promise.all([
-          fetchSKUList(),
-          fetchTransferSuggestions()
-        ]);
+        const skuRes = await fetchSKUList();
 
         if (skuRes.success) {
           setSkus(skuRes.data);
           if (skuRes.data.length > 0) {
             setSelectedSku(skuRes.data[0]);
           }
-        }
-
-        if (transferRes.success) {
-          setTransfers(transferRes.data);
         }
       } catch (err) {
         console.error('Init dashboard error:', err);
@@ -128,28 +119,7 @@ const DashboardPage: React.FC = () => {
       }
     };
     init();
-
-    // ── Session Protection: Alert on Refresh ─────────────────────────
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      // Trigger a database reset in the background
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-      navigator.sendBeacon(`${apiUrl}/api/inventory/reset`);
-
-      e.preventDefault();
-      e.returnValue = ''; // Required for Chrome confirmation
-      return '';
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [navigate]);
-
-  // Handle auto-redirect if data is wiped (happens after refresh)
-  useEffect(() => {
-    if (!loading && skus.length === 0) {
-      navigate('/');
-    }
-  }, [skus, loading, navigate]);
+  }, []);
 
   useEffect(() => {
     if (selectedSku) {
@@ -182,16 +152,8 @@ const DashboardPage: React.FC = () => {
     // Reset filters when user switches SKU
     setSelectedColor('ALL');
     setSelectedStore('ALL');
+    setCurrentPage(1);
   }, [selectedSku]);
-
-  useEffect(() => {
-    if (!confirmUploadOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setConfirmUploadOpen(false);
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [confirmUploadOpen]);
 
   const colorOptions = React.useMemo(() => {
     const rows = detail?.storeBreakdown || [];
@@ -209,6 +171,19 @@ const DashboardPage: React.FC = () => {
 
   const effectiveSelectedColor = colorOptions.includes(selectedColor) ? selectedColor : 'ALL';
   const effectiveSelectedStore = storeOptions.includes(selectedStore) ? selectedStore : 'ALL';
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [effectiveSelectedColor, effectiveSelectedStore]);
+
+  useEffect(() => {
+    if (!confirmUploadOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setConfirmUploadOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [confirmUploadOpen]);
 
   const selectedRows = React.useMemo<StoreBreakdown[]>(() => {
     let rows = detail?.storeBreakdown || [];
@@ -232,6 +207,9 @@ const DashboardPage: React.FC = () => {
       };
     });
   }, [selectedRows]);
+
+  const totalPages = Math.ceil(enrichedRows.length / pageSize);
+  const paginatedRows = enrichedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const aggregatedRowsForChart = React.useMemo<StoreBreakdown[]>(() => {
     const byLoc = new Map<
@@ -320,134 +298,32 @@ const DashboardPage: React.FC = () => {
 
   return (
     <div className="enterprise-shell">
-      {/* ── Sidebar ─────────────────────────────────────────────────── */}
-      <aside className={`enterprise-sidebar ${isSidebarOpen ? 'mobile-open' : ''}`}>
-        <div className="brand-header">
-          <div className="brand-icon"><img src="/Octave.jpeg" alt="Octave Apperals" style={{height: '20px', width: 'auto'}} /></div>
-          <div>
-            <div className="brand-name">Octave Apperals</div>
-            <div className="brand-sub">SCM INTELLIGENCE</div>
-          </div>
-          <button className="mobile-close-btn" onClick={() => setIsSidebarOpen(false)}>
-            <X size={20} />
-          </button>
-        </div>
+      <Sidebar 
+        isSidebarOpen={isSidebarOpen} 
+        setIsSidebarOpen={setIsSidebarOpen} 
+        setConfirmUploadOpen={setConfirmUploadOpen} 
+      />
 
-        <nav className="side-nav">
-          <button className="side-nav-link active">
-            <LayoutDashboard size={18} />
-            <span>Inventory Master</span>
-            <ChevronRight size={14} className="chevron" />
-          </button>
-          <button className="side-nav-link" onClick={() => setConfirmUploadOpen(true)}>
-            <ArrowLeft size={18} />
-            <span>Upload New Data</span>
-          </button>
-        </nav>
-
-        <div className="sidebar-footer">
-          <div className="system-status">
-            <div className="dot pulse"></div>
-            System Online: v1.5.0-LTS
-          </div>
-          <button
-            className="sidebar-reset-btn"
-            onClick={async () => {
-              if (window.confirm("ARE YOU SURE? This will permanently delete ALL uploaded inventory records. You will need to re-upload your Excel files.")) {
-                const { resetInventoryData } = await import('../api');
-                try {
-                  await resetInventoryData();
-                  window.location.reload();
-                } catch (err) {
-                  const errorMessage = err instanceof Error ? err.message : String(err);
-                  alert("Reset failed: " + errorMessage);
-                }
-              }
-            }}
-            style={{
-              marginTop: '1.5rem',
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '8px',
-              padding: '0.65rem',
-              border: '1.5px solid rgba(192, 57, 43, 0.2)',
-              background: 'rgba(192, 57, 43, 0.05)',
-              borderRadius: '0.75rem',
-              color: '#C0392B',
-              fontSize: '11px',
-              fontFamily: "'Outfit', sans-serif",
-              fontWeight: 700,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              cursor: 'pointer',
-              transition: 'all 0.2s'
-            }}
-          >
-            <RefreshCw size={14} /> Reset All Data
-          </button>
-        </div>
-      </aside>
-
-      {/* ── Main Content ────────────────────────────────────────────── */}
       <main className="enterprise-main">
-        {/* Top Commmand Bar */}
-        <header className="enterprise-header">
-          <div className="header-left">
-            <button className="mobile-menu-btn" onClick={() => setIsSidebarOpen(true)}>
-              <Menu size={24} />
-            </button>
-            <div>
-              <h1>Supply Chain Inventory Control</h1>
-              <p>Real-time SKU performance across {summary?.storeCount || 0} locations</p>
-            </div>
-          </div>
-          <div className="header-right">
-            <SKUSelector
-              skus={skus}
-              selectedSku={selectedSku}
-              onSelect={setSelectedSku}
-            />
-          </div>
-        </header>
+        <DashboardHeader 
+          summary={summary}
+          skus={skus}
+          selectedSku={selectedSku}
+          setSelectedSku={setSelectedSku}
+          setIsSidebarOpen={setIsSidebarOpen}
+        />
 
-        {/* Selection Refinement Toolbar */}
-        <AnimatePresence mode="popLayout">
-          {detail?.storeBreakdown?.length ? (
-            <motion.div
-              key="sku-refinement-bar"
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="filter-toolbar"
-            >
-              <div className="filter-group">
-                <Package size={14} className="filter-icon" />
-                <span className="filter-label-inline">Active SKU: <strong>{selectedSku}</strong></span>
-              </div>
+        <FilterToolbar 
+          detail={detail}
+          selectedSku={selectedSku}
+          colorOptions={colorOptions}
+          effectiveSelectedColor={effectiveSelectedColor}
+          setSelectedColor={setSelectedColor}
+          storeOptions={storeOptions}
+          effectiveSelectedStore={effectiveSelectedStore}
+          setSelectedStore={setSelectedStore}
+        />
 
-              <div className="filter-divider"></div>
-
-              <div className="refinement-controls">
-                <ColorSelector
-                  colors={colorOptions}
-                  selectedColor={effectiveSelectedColor}
-                  onSelect={setSelectedColor}
-                  label="Color"
-                />
-
-                <StoreSelector
-                  stores={storeOptions}
-                  selectedStore={effectiveSelectedStore}
-                  onSelect={setSelectedStore}
-                  label="Store"
-                />
-              </div>
-            </motion.div>
-          ) : null}
-        </AnimatePresence>
         <div className="dashboard-tabs">
           <button
             className={`tab-btn ${activeTab === 'analytics' ? 'active' : ''}`}
@@ -460,7 +336,7 @@ const DashboardPage: React.FC = () => {
             className={`tab-btn ${activeTab === 'logistics' ? 'active' : ''}`}
             onClick={() => setActiveTab('logistics')}
           >
-            <ArrowRightLeft size={16} />
+            <Package size={16} />
             Logistics Hub
           </button>
         </div>
@@ -491,276 +367,42 @@ const DashboardPage: React.FC = () => {
 
         <AnimatePresence mode="wait">
           {activeTab === 'analytics' ? (
-            <motion.div
-              key="analytics"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="dash-col-left"
-            >
-              {/* Visuals Row */}
-              <div className="visuals-row">
-                <div className="dash-card">
-                  <div className="card-header">
-                    <h3>Store Distribution</h3>
-                    <p>Net sales breakdown by location</p>
-                  </div>
-                  <div className="card-body">
-                    {detailLoading ? <div className="loading-shimmer" /> : (
-                      <SalesBarChart data={aggregatedRowsForChart} />
-                    )}
-                  </div>
-                </div>
-
-                <div className="dash-card" style={{ maxWidth: '320px' }}>
-                  <div className="card-header">
-                    <h3>Sell-Through Performance</h3>
-                    <p>Aggregate efficiency rate</p>
-                  </div>
-                  <div className="card-body center">
-                    {detailLoading ? <div className="loading-shimmer circle" /> : (
-                      <SellThroughGauge value={summary?.avgSaleThru || 0} />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Store Table */}
-              <div className="dash-card full-width">
-                <div className="card-header space-between">
-                  <div>
-                    <h3>Location-Level Granularity</h3>
-                    <p>Detailed breakdown of stock and sales per store</p>
-                  </div>
-                </div>
-                <div className="card-body no-padding">
-                  <div className="table-responsive">
-                    <table className="enterprise-table">
-                      <thead>
-                        <tr>
-                          <th>Location</th>
-                          <th>Color</th>
-                          <th>In Transit</th>
-                          <th>Net Sales</th>
-                          <th>Current Closing</th>
-                          <th>Sell-Thru</th>
-                          <th>Action Status</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <AnimatePresence mode="popLayout" initial={false}>
-                          {enrichedRows.map((row) => {
-                            const rowKey = `${row.locationName}-${row.colorName}-${row.sectionName}`;
-                            const isExpanded = expandedRowKey === rowKey;
-
-                            return (
-                              <React.Fragment key={rowKey}>
-                                <motion.tr
-                                  layout
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1, backgroundColor: isExpanded ? 'rgba(212, 168, 90, 0.04)' : 'transparent' }}
-                                  exit={{ opacity: 0 }}
-                                  transition={{ duration: 0.15 }}
-                                  onClick={() => toggleRow(rowKey)}
-                                  className={isExpanded ? 'row-expanded' : ''}
-                                  style={{ cursor: 'pointer' }}
-                                >
-                                  <td className="bold">{row.locationName}</td>
-                                  <td>{row.colorName}</td>
-                                  <td style={{ color: row.gitQty > 0 ? '#D4A85A' : 'inherit' }}>
-                                    {row.gitQty > 0 ? `+${row.gitQty}` : '-'}
-                                  </td>
-                                  <td className="green-text">{row.netSlsQty}</td>
-                                  <td>{row.cbsQty}</td>
-                                  <td>
-                                    <div className="progress-mini">
-                                      <div
-                                        className="progress-fill"
-                                        style={{
-                                          width: `${Math.min(row.saleThruPct, 100)}%`,
-                                          background: row.saleThruPct > 80 ? '#4A7C59' : row.saleThruPct > 40 ? '#B07D3A' : '#ef4444'
-                                        }}
-                                      />
-                                      <span className="progress-text">{row.saleThruPct}%</span>
-                                    </div>
-                                  </td>
-                                  <td>
-                                    <StockStatusBadge
-                                      status={row.status}
-                                      inTransit={row.inTransit}
-                                    />
-                                  </td>
-                                </motion.tr>
-
-                                <AnimatePresence>
-                                  {isExpanded && (
-                                    <motion.tr
-                                      initial={{ opacity: 0, height: 0 }}
-                                      animate={{ opacity: 1, height: 'auto' }}
-                                      exit={{ opacity: 0, height: 0 }}
-                                      transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
-                                      className="diagnostic-row"
-                                    >
-                                      <td colSpan={8} style={{ padding: 0 }}>
-                                        <div className="diagnostic-pane">
-                                          <div className="diagnostic-accent" style={{
-                                            backgroundColor: row.status === 'CRITICAL' || row.status === 'OUT_OF_STOCK' ? '#ef4444' :
-                                              row.status === 'OVERSTOCK' ? '#7c3aed' :
-                                                row.status === 'HEALTHY' ? '#059669' : '#78716c'
-                                          }} />
-                                          <div className="diagnostic-content">
-                                            <div className="diag-header">
-                                              <span className="diag-label">Intelligence Report</span>
-                                              <span className="diag-status">
-                                                Status: <strong style={{ color: 'var(--primary)' }}>{row.status.replace(/_/g, ' ')}</strong>
-                                              </span>
-                                            </div>
-                                            <div className="diag-body">
-                                              <p className="diag-reason">{row.statusReason}</p>
-                                              <div className="diag-stats">
-                                                <div className="diag-stat-item">
-                                                  <span>Net Velocity</span>
-                                                  <strong>{row.netSlsQty} units/period</strong>
-                                                </div>
-                                                <div className="diag-stat-separator" />
-                                                <div className="diag-stat-item">
-                                                  <span>Current Coverage</span>
-                                                  <strong>{row.netSlsQty > 0 ? (row.cbsQty / row.netSlsQty).toFixed(1) : '∞'} weeks</strong>
-                                                </div>
-                                              </div>
-                                            </div>
-                                          </div>
-
-                                          {row.asm && row.asm !== 'N/A' && (
-                                            <div style={{
-                                              marginTop: '1rem',
-                                              paddingTop: '0.75rem',
-                                              borderTop: '1px dashed rgba(212, 168, 90, 0.15)',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '8px'
-                                            }}>
-                                              <span style={{ fontSize: '10px', textTransform: 'uppercase', color: '#9CA3AF', fontWeight: 600 }}>Store Leadership:</span>
-                                              <span style={{ fontSize: '12px', fontWeight: 700, color: '#1C1917' }}>{row.asm}</span>
-                                            </div>
-                                          )}
-                                        </div>
-                                      </td>
-                                    </motion.tr>
-                                  )}
-                                </AnimatePresence>
-                              </React.Fragment>
-                            );
-                          })}
-                        </AnimatePresence>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+            <AnalyticsTab 
+              detailLoading={detailLoading}
+              aggregatedRowsForChart={aggregatedRowsForChart}
+              summary={summary}
+              paginatedRows={paginatedRows}
+              currentPage={currentPage}
+              setCurrentPage={setCurrentPage}
+              totalPages={totalPages}
+              pageSize={pageSize}
+              enrichedRows={enrichedRows}
+              expandedRowKey={expandedRowKey}
+              toggleRow={toggleRow}
+            />
           ) : (
-            <motion.div
-              key="logistics"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="dash-col-right"
-            >
-              <div className="dash-card transfer-panel">
-                <div className="card-header">
-                  <div className="header-icon"><ArrowRightLeft size={16} /></div>
-                  <div>
-                    <h3>Inter-store Transfer Engine</h3>
-                    <p>Optimized suggestions to balance stock levels</p>
-                  </div>
-                </div>
-
-                <div className="card-body no-padding">
-                  <div className="transfer-list">
-                    {detail?.storeBreakdown.some(s => s.locationName === 'NETWORK_WIDE') ? (
-                      <div className="empty-state">
-                        <AlertCircle size={48} opacity={0.2} style={{ margin: '0 auto 16px' }} />
-                        <h3>Multi-Store Context Required</h3>
-                        <p>Inter-store transfers are disabled for consolidated reports as specific source and destination locations are not defined.</p>
-                      </div>
-                    ) : (
-                      <TransferManifest suggestions={transfers} />
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="dash-card critical-alert" role="alert" aria-live="polite">
-                <AlertCircle size={20} className="shake" />
-                <div>
-                  <h4>System Diagnostic</h4>
-                  <p>Checked {selectedRows.length || 0} active rows and validated {(summary?.totalCbs || 0).toLocaleString()} units. Recommendations computed by SCM rules.</p>
-                </div>
-              </div>
-            </motion.div>
+            <LogisticsTab 
+              detail={detail}
+              transfers={transfers}
+              selectedRows={selectedRows}
+              summary={summary}
+            />
           )}
         </AnimatePresence>
       </main>
 
       {confirmUploadOpen && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirm-upload-title"
-          className="confirm-upload-overlay"
-          onClick={() => setConfirmUploadOpen(false)}
-        >
-          <div
-            className="confirm-upload-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="confirm-upload-title" id="confirm-upload-title">
-              Confirm Upload
-            </div>
-            <div className="confirm-upload-body">
-              This will take you back to the Upload page to refresh analytics.
-              <br />
-              Are you sure you want to continue?
-            </div>
-            <div className="confirm-upload-actions">
-              <button
-                className="btn-secondary"
-                onClick={() => setConfirmUploadOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn-primary"
-                onClick={() => {
-                  setConfirmUploadOpen(false);
-                  navigate('/');
-                }}
-              >
-                Continue to Upload
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmUploadModal 
+          onClose={() => setConfirmUploadOpen(false)}
+          onContinue={() => {
+            setConfirmUploadOpen(false);
+            navigate('/');
+          }}
+        />
       )}
+      <Chatbot />
     </div>
   );
 };
-
-const KPICard = ({ label, value, icon, color = '#D4A85A', trend, tooltip }: any) => (
-  <motion.div
-    whileHover={{ y: -4 }}
-    className="kpi-card-enterprise"
-    title={tooltip}
-    aria-label={`${label}: ${value}`}
-  >
-    <div className="kpi-top">
-      <div className="kpi-icon-box" style={{ color }}>{icon}</div>
-      {trend && <div className="kpi-trend" aria-label="Trend indicator">{trend}</div>}
-    </div>
-    <div className="kpi-val">{value.toLocaleString()}</div>
-    <div className="kpi-lab">{label}</div>
-  </motion.div>
-);
 
 export default DashboardPage;

@@ -1,8 +1,10 @@
 import React, { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Upload, Loader2, XCircle, Info } from 'lucide-react'
+import { Upload, Loader2, XCircle, Info, Zap, BarChart3, ShieldCheck, PieChart, TrendingUp, Sparkles } from 'lucide-react'
 import { uploadInventoryFile } from '../api'
+
+import Navbar from '../components/Navbar'
 
 const UploadPage: React.FC = () => {
   const [isDragging, setIsDragging] = useState(false)
@@ -35,18 +37,13 @@ const UploadPage: React.FC = () => {
     setIsUploading(true)
     setProgress(0)
 
-    // Phase 1: Simulate upload 0 → 70%
     startProgressSimulation(70, 40)
 
     try {
-      // Pass both file and reportDate (handled via standard upload for now, 
-      // but backend now has default fallback and will eventually use this)
-      await uploadInventoryFile(selectedFile, reportDate, () => {})
+      await uploadInventoryFile(selectedFile, reportDate, () => { })
 
-      // Phase 2: Server parsing → 70 → 95%
       startProgressSimulation(95, 60)
 
-      // Phase 3: Done → snap to 100% and navigate
       setTimeout(() => {
         if (progressRef.current) clearInterval(progressRef.current)
         setProgress(100)
@@ -55,10 +52,6 @@ const UploadPage: React.FC = () => {
     } catch (err: any) {
       console.error('FULL UPLOAD ERROR:', err);
       const serverError = err.response?.data?.error || err.response?.data?.message || err.message;
-      const details = err.response?.data?.details || '';
-      console.error('Server Details:', details);
-      alert(`Upload Failed: ${serverError}\n\nCheck console for full technical details.`);
-      if (progressRef.current) clearInterval(progressRef.current)
       setError(serverError)
       setIsUploading(false)
       setProgress(0)
@@ -72,21 +65,23 @@ const UploadPage: React.FC = () => {
   }
 
   return (
-    <div className="premium-portal-wrapper">
+    <div className="premium-portal-wrapper" style={{ display: 'flex', flexDirection: 'column', paddingTop: '80px' }}>
+      <Navbar />
+
       {/* Dynamic Background Elements */}
       <div className="aurora-blob aurora-1"></div>
       <div className="aurora-blob aurora-2"></div>
       <div className="aurora-blob aurora-3"></div>
 
-      <main className="portal-content">
+      <main className="portal-content" style={{ margin: 'auto' }}>
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           className="portal-header"
         >
-          <div className="brand-tag">Octave Apperals</div>
-          <h1>Intelligence at your fingertips</h1>
-          <p>Securely upload your inventory report to unlock deep sales insights.</p>
+          <div className="brand-tag !tracking-[2px]">AI Powered Data Engine</div>
+          <h1>Analyze Your Report</h1>
+          <p>Drop your file to start the intelligent analysis.</p>
         </motion.div>
 
         <motion.div
@@ -95,8 +90,6 @@ const UploadPage: React.FC = () => {
           transition={{ delay: 0.1 }}
           className="portal-main-action-area"
         >
-          {/* Date Selector removed for UI cleaner look as requested */}
-
           <motion.div
             className={`portal-glass-card ${isDragging ? 'dragging' : ''}`}
             onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
@@ -145,7 +138,6 @@ const UploadPage: React.FC = () => {
                   <p>
                     {progress < 70 ? 'Transferring your data securely...' : progress < 95 ? 'Establishing data hierarchy...' : 'Almost ready!'}
                   </p>
-                  {/* Progress Bar */}
                   <div style={{
                     width: '100%', height: '6px', borderRadius: '999px',
                     background: 'rgba(129,140,248,0.15)', marginTop: '16px', overflow: 'hidden'
@@ -176,20 +168,15 @@ const UploadPage: React.FC = () => {
           </motion.div>
         </motion.div>
 
-
-        <motion.footer
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4 }}
-          className="portal-footer"
-        >
+        <footer className="portal-footer">
           <div className="badge-item"><Info size={14} /> Retail Standards Verified</div>
           <div className="badge-separator"></div>
-          <div className="badge-item">256-bit Encryption Security</div>
-        </motion.footer>
+          <div className="badge-item">256-bit Encryption</div>
+        </footer>
       </main>
     </div>
   )
 }
 
 export default UploadPage
+

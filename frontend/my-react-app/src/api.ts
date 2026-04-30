@@ -77,3 +77,7 @@ export const fetchTransferSuggestions = async (articleNo?: string) => {
   return response.data
 }
 
+export const askChatbot = async (message: string, history: any[] = []) => {
+  const response = await api.post('/api/chatbot/ask', { message, history })
+  return response.data
+}
