@@ -1,7 +1,7 @@
 import React from 'react'
 import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, MoveRight, TrendingUp, Layers, ShieldCheck, Upload, Cpu, BarChart2, Zap, Lock, RefreshCw, Globe, CheckCircle2 } from 'lucide-react'
+import { ArrowRight, MoveRight, TrendingUp, Layers, ShieldCheck, Upload, Cpu, BarChart2, Lock, RefreshCw, Globe, CheckCircle2 } from 'lucide-react'
 import Navbar from '../components/Navbar'
 
 const LandingPage: React.FC = () => {

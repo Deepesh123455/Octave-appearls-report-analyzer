@@ -1,7 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
-import { Upload, Loader2, XCircle, Info, Zap, BarChart3, ShieldCheck, PieChart, TrendingUp, Sparkles } from 'lucide-react'
+import { Upload, Loader2, XCircle, Info } from 'lucide-react'
 import { uploadInventoryFile } from '../api'
 
 import Navbar from '../components/Navbar'
