@@ -15,10 +15,9 @@ const SKUSelector: React.FC<SKUSelectorProps> = ({ skus, selectedSku, onSelect }
   const inputRef = useRef<HTMLInputElement>(null);
 
   const filteredSkus = useMemo(() => {
-    if (!searchTerm) return skus.slice(0, 50);
+    if (!searchTerm) return skus;
     return skus
-      .filter(sku => sku.toLowerCase().includes(searchTerm.toLowerCase()))
-      .slice(0, 50);
+      .filter(sku => sku.toLowerCase().includes(searchTerm.toLowerCase()));
   }, [skus, searchTerm]);
 
   // Reset active index when search changes or dropdown opens

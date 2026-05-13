@@ -80,14 +80,42 @@ class SKUService {
       const { primary, inTransit } = classifyStatus({ obsQty, cbsQty, gitQty, netSlsQty, saleThruPct });
 
       return {
-        locationName: row.locationName,
-        sectionName: row.sectionName,
-        colorName: row.colorName,
-        obsQty,
-        cbsQty,
-        gitQty,
-        netSlsQty,
-        saleThruPct,
+        // Core identity
+        locationName:       row.locationName,
+        sectionName:        row.sectionName,
+        subSectionName:     row.subSectionName,
+        category:           row.category,
+        colorName:          row.colorName,
+        // Product attributes
+        description:        row.description   || null,
+        fabric:             row.fabric        || null,
+        brand:              row.brand         || null,
+        gender:             row.gender        || null,
+        season:             row.season        || null,
+        styleCode:          row.styleCode     || null,
+        size:               row.size          || null,
+        region:             row.region        || null,
+        zone:               row.zone          || null,
+        storeGrade:         row.storeGrade    || null,
+        asm:                row.asm           || null,
+        // Core quantities
+        obsQty, cbsQty, gitQty, netSlsQty, saleThruPct,
+        // Extended quantities
+        groupPurQty:        Number(row.groupPurQty        || 0),
+        groupPrtQty:        Number(row.groupPrtQty        || 0),
+        deliveryChallanQty: Number(row.deliveryChallanQty || 0),
+        groupWslQty:        Number(row.groupWslQty        || 0),
+        returnQty:          Number(row.returnQty          || 0),
+        transferInQty:      Number(row.transferInQty      || 0),
+        transferOutQty:     Number(row.transferOutQty     || 0),
+        damagedQty:         Number(row.damagedQty         || 0),
+        // Financial
+        mrp:                row.mrp           != null ? Number(row.mrp)           : null,
+        asp:                row.asp           != null ? Number(row.asp)           : null,
+        netSalesValue:      row.netSalesValue != null ? Number(row.netSalesValue) : null,
+        discountPct:        Number(row.discountPct || 0),
+        costPrice:          row.costPrice     != null ? Number(row.costPrice)     : null,
+        // Status
         status: primary,
         inTransit,
       };

@@ -2,23 +2,17 @@ import { db } from '../../db/config.js';
 import { inventorySnapshots } from '../../db/schema.js';
 import { eq, and, sql, asc } from 'drizzle-orm';
 
-/**
- * Repository for Inventory Data
- * Handles database operations using Drizzle ORM
- */
 class InventoryRepository {
-  /**
-   * Upsert inventory data in batches. Implements idempotency using a composite unique constraint.
-   * Target: (report_date, location_name, article_no, color_name)
-   */
+  constructor() {
+    this.uploadLogs = [];
+  }
+
+  // ── Upsert ───────────────────────────────────────────────────────────────
+
   async upsertInventoryData(dataArray) {
-    console.log(`REPOSITORY: Received request to upsert ${dataArray.length} records...`);
+    console.log(`REPOSITORY: Upserting ${dataArray.length} records...`);
     if (!dataArray || dataArray.length === 0) return { success: true, count: 0 };
-    
-    if (!inventorySnapshots) {
-      console.error('CRITICAL ERROR: inventorySnapshots table is undefined in repository');
-      throw new Error('Database schema selection failed');
-    }
+
     const BATCH_SIZE = 200;
     let totalCount = 0;
     const defaultDate = new Date().toISOString().split('T')[0];
@@ -28,35 +22,66 @@ class InventoryRepository {
         .filter(row => row.locationName || row.articleNo)
         .map(row => ({
           reportDate: row.reportDate || defaultDate,
+          // Identity
           locationName: String(row.locationName || 'UNKNOWN-LOC').substring(0, 255),
           sectionName: row.sectionName ? String(row.sectionName).substring(0, 255) : null,
           subSectionName: row.subSectionName ? String(row.subSectionName).substring(0, 255) : null,
           category: row.category ? String(row.category).substring(0, 255) : 'General',
           articleNo: String(row.articleNo || 'GENERAL-STOCK').substring(0, 100),
           colorName: String(row.colorName || 'N/A').substring(0, 100),
+          // Product attributes
           fabric: row.fabric ? String(row.fabric).substring(0, 100) : null,
+          description: row.description ? String(row.description).substring(0, 500) : null,
+          brand: row.brand ? String(row.brand).substring(0, 100) : null,
+          gender: row.gender ? String(row.gender).substring(0, 20) : null,
+          season: row.season ? String(row.season).substring(0, 50) : null,
+          styleCode: row.styleCode ? String(row.styleCode).substring(0, 100) : null,
+          size: row.size ? String(row.size).substring(0, 50) : null,
+          barcode: row.barcode ? String(row.barcode).substring(0, 50) : null,
+          // Core quantities
           obsQty: Number(row.obsQty || 0),
           cbsQty: Number(row.cbsQty || 0),
           gitQty: Number(row.gitQty || 0),
           netSlsQty: Number(row.netSlsQty || 0),
-          saleThruPct: Number(row.saleThruPercent || row.saleThruPct || 0),
-          asm: row.asm ? String(row.asm).substring(0, 255) : null
+          saleThruPct: Number(row.saleThruPct || row.saleThruPercent || 0),
+          // Extended quantities
+          groupPurQty: Number(row.groupPurQty || 0),
+          groupPrtQty: Number(row.groupPrtQty || 0),
+          deliveryChallanQty: Number(row.deliveryChallanQty || 0),
+          groupWslQty: Number(row.groupWslQty || 0),
+          returnQty: Number(row.returnQty || 0),
+          transferInQty: Number(row.transferInQty || 0),
+          transferOutQty: Number(row.transferOutQty || 0),
+          damagedQty: Number(row.damagedQty || 0),
+          // Financial
+          mrp: row.mrp != null ? Number(row.mrp) : null,
+          asp: row.asp != null ? Number(row.asp) : null,
+          netSalesValue: row.netSalesValue != null ? Number(row.netSalesValue) : null,
+          discountPct: Number(row.discountPct || 0),
+          costPrice: row.costPrice != null ? Number(row.costPrice) : null,
+          // Organization
+          asm: row.asm ? String(row.asm).substring(0, 255) : null,
+          region: row.region ? String(row.region).substring(0, 100) : null,
+          zone: row.zone ? String(row.zone).substring(0, 100) : null,
+          storeGrade: row.storeGrade ? String(row.storeGrade).substring(0, 10) : null,
+          storeManager: row.storeManager ? String(row.storeManager).substring(0, 255) : null,
+          // Time
+          weekNumber: row.weekNumber != null ? Number(row.weekNumber) : null,
+          periodLabel: row.periodLabel ? String(row.periodLabel).substring(0, 50) : null,
+          daysInPeriod: row.daysInPeriod != null ? Number(row.daysInPeriod) : 30,
         }))
-        // Filter out rows where articleNo is just a category keyword (Mapping artifact)
         .filter(row => {
           const art = row.articleNo.toUpperCase();
           return !['MEN', 'WOMEN', 'KIDS', 'ACCESSORIES', 'TOTAL', 'GRAND TOTAL'].includes(art);
         });
 
-      // Drizzle/Postgres Safeguard: Deduplicate rows WITHIN the same batch for (Date, Store, SKU, Color)
-      // because UPSERT cannot handle duplicates in the primary key in a single statement.
+      // Deduplicate within batch
       const uniqueMap = new Map();
       rawBatch.forEach(row => {
         const key = `${row.reportDate}|${row.locationName}|${row.articleNo}|${row.colorName}`;
         uniqueMap.set(key, row);
       });
       const batch = Array.from(uniqueMap.values());
-
       if (batch.length === 0) continue;
 
       try {
@@ -74,21 +99,34 @@ class InventoryRepository {
               gitQty: sql`EXCLUDED.git_qty`,
               netSlsQty: sql`EXCLUDED.net_sls_qty`,
               saleThruPct: sql`EXCLUDED.sale_thru_pct`,
-              asm: sql`EXCLUDED.asm`
+              groupPurQty: sql`EXCLUDED.group_pur_qty`,
+              groupPrtQty: sql`EXCLUDED.group_prt_qty`,
+              deliveryChallanQty: sql`EXCLUDED.delivery_challan_qty`,
+              groupWslQty: sql`EXCLUDED.group_wsl_qty`,
+              returnQty: sql`EXCLUDED.return_qty`,
+              transferInQty: sql`EXCLUDED.transfer_in_qty`,
+              transferOutQty: sql`EXCLUDED.transfer_out_qty`,
+              damagedQty: sql`EXCLUDED.damaged_qty`,
+              mrp: sql`EXCLUDED.mrp`,
+              asp: sql`EXCLUDED.asp`,
+              netSalesValue: sql`EXCLUDED.net_sales_value`,
+              discountPct: sql`EXCLUDED.discount_pct`,
+              costPrice: sql`EXCLUDED.cost_price`,
+              description: sql`EXCLUDED.description`,
+              fabric: sql`EXCLUDED.fabric`,
+              brand: sql`EXCLUDED.brand`,
+              gender: sql`EXCLUDED.gender`,
+              season: sql`EXCLUDED.season`,
+              region: sql`EXCLUDED.region`,
+              zone: sql`EXCLUDED.zone`,
+              asm: sql`EXCLUDED.asm`,
             }
           });
-        
+
         totalCount += batch.length;
-        if (totalCount % 1000 === 0) {
-           console.log(`REPOSITORY: Progress - ${totalCount} records ingested`);
-        }
+        if (totalCount % 1000 === 0) console.log(`REPOSITORY: ${totalCount} records ingested`);
       } catch (err) {
-        console.error('DATABASE INGESTION ERROR:', {
-          message: err.message,
-          code: err.code,
-          detail: err.detail,
-          batchSize: batch.length
-        });
+        console.error('DATABASE INGESTION ERROR:', { message: err.message, code: err.code, detail: err.detail });
         throw err;
       }
     }
@@ -96,9 +134,8 @@ class InventoryRepository {
     return { success: true, count: totalCount };
   }
 
-  /**
-   * Get the most recent report date available in the database.
-   */
+  // ── Queries ──────────────────────────────────────────────────────────────
+
   async getLatestReportDate() {
     const result = await db
       .select({ maxDate: sql`MAX(${inventorySnapshots.reportDate})` })
@@ -106,62 +143,17 @@ class InventoryRepository {
     return result[0]?.maxDate || null;
   }
 
-  /**
-   * Retrieve inventory data based on filters.
-   * Defaults to the latest report date if none is provided.
-   */
   async getInventoryDataForProcessing(filters = {}) {
     const latestDate = filters.reportDate || await this.getLatestReportDate();
-    
     const query = db.select().from(inventorySnapshots);
     const conditions = [];
-    
     if (latestDate) conditions.push(eq(inventorySnapshots.reportDate, latestDate));
     if (filters.locationName) conditions.push(eq(inventorySnapshots.locationName, filters.locationName));
     if (filters.sectionName) conditions.push(eq(inventorySnapshots.sectionName, filters.sectionName));
-
-    if (conditions.length > 0) {
-      query.where(and(...conditions));
-    }
-
+    if (conditions.length > 0) query.where(and(...conditions));
     return await query;
   }
 
-  /**
-   * Keep existing logs contract but using memory for now as it wasn't specified to move to DB
-   * In a real app, these should also be in a DB table.
-   */
-  constructor() {
-    this.uploadLogs = [];
-  }
-
-  async logUpload(fileName, recordCount) {
-    const entry = {
-      fileName,
-      timestamp: new Date().toISOString(),
-      totalRecords: recordCount
-    };
-    this.uploadLogs.push(entry);
-    return entry;
-  }
-
-  async getLogs() {
-    return this.uploadLogs;
-  }
-
-  // Backward compatibility for existing services
-  async bulkInsert(rows) {
-     return this.upsertInventoryData(rows);
-  }
-
-  async getAll() {
-    return this.getInventoryDataForProcessing();
-  }
-
-  /**
-   * Get all unique article numbers (SKUs) from the DB, sorted alphabetically.
-   * Returns an array of strings.
-   */
   async getUniqueSKUs() {
     const result = await db
       .selectDistinct({ articleNo: inventorySnapshots.articleNo })
@@ -170,37 +162,75 @@ class InventoryRepository {
     return result.map(r => r.articleNo).filter(s => s && s !== 'N/A');
   }
 
-  /**
-   * Get all rows for a specific SKU (articleNo) on a specific date.
-   * Defaults to latest date if not specified.
-   */
   async getSKUDetail(articleNo, reportDate = null) {
     const targetDate = reportDate || await this.getLatestReportDate();
-    
-    const query = db
+
+    return await db
       .select({
-        locationName:  inventorySnapshots.locationName,
-        sectionName:   inventorySnapshots.sectionName,
-        category:      inventorySnapshots.category,
-        colorName:     inventorySnapshots.colorName,
-        obsQty:        sql`SUM(${inventorySnapshots.obsQty})`.as('obsQty'),
-        cbsQty:        sql`SUM(${inventorySnapshots.cbsQty})`.as('cbsQty'),
-        gitQty:        sql`SUM(${inventorySnapshots.gitQty})`.as('gitQty'),
-        netSlsQty:     sql`SUM(${inventorySnapshots.netSlsQty})`.as('netSlsQty'),
-        saleThruPct:   sql`AVG(${inventorySnapshots.saleThruPct})`.as('saleThruPct'),
-        asm:           inventorySnapshots.asm,
+        locationName: inventorySnapshots.locationName,
+        sectionName: inventorySnapshots.sectionName,
+        subSectionName: inventorySnapshots.subSectionName,
+        category: inventorySnapshots.category,
+        colorName: inventorySnapshots.colorName,
+        description: inventorySnapshots.description,
+        fabric: inventorySnapshots.fabric,
+        brand: inventorySnapshots.brand,
+        gender: inventorySnapshots.gender,
+        season: inventorySnapshots.season,
+        styleCode: inventorySnapshots.styleCode,
+        size: inventorySnapshots.size,
+        region: inventorySnapshots.region,
+        zone: inventorySnapshots.zone,
+        storeGrade: inventorySnapshots.storeGrade,
+        asm: inventorySnapshots.asm,
+        // Aggregated quantities
+        obsQty: sql`SUM(${inventorySnapshots.obsQty})`.as('obsQty'),
+        cbsQty: sql`SUM(${inventorySnapshots.cbsQty})`.as('cbsQty'),
+        gitQty: sql`SUM(${inventorySnapshots.gitQty})`.as('gitQty'),
+        netSlsQty: sql`SUM(${inventorySnapshots.netSlsQty})`.as('netSlsQty'),
+        saleThruPct: sql`AVG(${inventorySnapshots.saleThruPct})`.as('saleThruPct'),
+        groupPurQty: sql`SUM(${inventorySnapshots.groupPurQty})`.as('groupPurQty'),
+        groupPrtQty: sql`SUM(${inventorySnapshots.groupPrtQty})`.as('groupPrtQty'),
+        deliveryChallanQty: sql`SUM(${inventorySnapshots.deliveryChallanQty})`.as('deliveryChallanQty'),
+        groupWslQty: sql`SUM(${inventorySnapshots.groupWslQty})`.as('groupWslQty'),
+        returnQty: sql`SUM(${inventorySnapshots.returnQty})`.as('returnQty'),
+        transferInQty: sql`SUM(${inventorySnapshots.transferInQty})`.as('transferInQty'),
+        transferOutQty: sql`SUM(${inventorySnapshots.transferOutQty})`.as('transferOutQty'),
+        damagedQty: sql`SUM(${inventorySnapshots.damagedQty})`.as('damagedQty'),
+        mrp: sql`AVG(${inventorySnapshots.mrp})`.as('mrp'),
+        asp: sql`AVG(${inventorySnapshots.asp})`.as('asp'),
+        netSalesValue: sql`SUM(${inventorySnapshots.netSalesValue})`.as('netSalesValue'),
+        discountPct: sql`AVG(${inventorySnapshots.discountPct})`.as('discountPct'),
+        costPrice: sql`AVG(${inventorySnapshots.costPrice})`.as('costPrice'),
       })
       .from(inventorySnapshots)
       .where(and(
         eq(inventorySnapshots.articleNo, articleNo),
         targetDate ? eq(inventorySnapshots.reportDate, targetDate) : sql`TRUE`
       ))
-      .groupBy(inventorySnapshots.locationName, inventorySnapshots.sectionName, inventorySnapshots.category, inventorySnapshots.colorName, inventorySnapshots.asm)
+      .groupBy(
+        inventorySnapshots.locationName, inventorySnapshots.sectionName,
+        inventorySnapshots.subSectionName, inventorySnapshots.category,
+        inventorySnapshots.colorName, inventorySnapshots.description,
+        inventorySnapshots.fabric, inventorySnapshots.brand,
+        inventorySnapshots.gender, inventorySnapshots.season,
+        inventorySnapshots.styleCode, inventorySnapshots.size,
+        inventorySnapshots.region, inventorySnapshots.zone,
+        inventorySnapshots.storeGrade, inventorySnapshots.asm
+      )
       .orderBy(asc(inventorySnapshots.locationName));
-
-    return await query;
   }
+
+  // ── Backward-compat ───────────────────────────────────────────────────────
+  async bulkInsert(rows) { return this.upsertInventoryData(rows); }
+  async getAll() { return this.getInventoryDataForProcessing(); }
+
+  async logUpload(fileName, recordCount) {
+    const entry = { fileName, timestamp: new Date().toISOString(), totalRecords: recordCount };
+    this.uploadLogs.push(entry);
+    return entry;
+  }
+  async getLogs() { return this.uploadLogs; }
 }
 
 export default new InventoryRepository();
-

@@ -1,17 +1,11 @@
 import { Groq } from 'groq-sdk';
 
-const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
-});
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
 class AIService {
   /**
-   * Resolve Excel headers to Unified SCM Schema using Llama-3.3-70b-versatile.
-   * Ensures deep semantic understanding of "Site/Store" vs "Article/SKU".
-   * 
-   * @param {string[]} headers - The raw header row from the Excel file
-   * @param {string[][]} sampleRows - A few rows of sample data to provide context
-   * @returns {Promise<Object>} - Field mapping JSON
+   * Resolve Excel headers to Unified Canonical Schema using Llama-3.3-70b.
+   * Pre-processes the file before the worker thread to improve mapping accuracy.
    */
   async resolveMappings(headers, sampleRows) {
     if (!process.env.GROQ_API_KEY) {
@@ -20,63 +14,57 @@ class AIService {
     }
 
     const prompt = `
-      As an expert Supply Chain Data Analyst, analyze these Excel headers and sample data.
-      Your goal is to map them to our internal UNIFIED INVENTORY SCHEMA.
+You are an expert Supply Chain & Retail Data Analyst. Map these Excel column headers to the canonical schema.
 
-      MANDATORY CONSTRAINTS:
-      1. HEADER DISCOVERY: Find the row index where column headers are located (0-indexed). 
-      
-      2. STORE VS SKU PATTERNS (CRITICAL): 
-         - ARTICLE PATTERN: Alphanumeric codes with multiple dashes (e.g., "FM-201-26").
-         - CATEGORY PATTERN: Words like "MEN", "WOMEN", "KIDS", "ACCESSORIES". These are NEVER articleNo.
-         - CARDINALITY: Columns with many unique values are articles. Columns with 2-5 repeating values are Categories.
+CANONICAL SCHEMA (map to these keys):
+IDENTITY: locationName, articleNo, colorName
+PRODUCT: sectionName, subSectionName, category, description, fabric, brand, gender, season, styleCode, size, barcode
+QUANTITY: obsQty, cbsQty, netSlsQty, gitQty, saleThruPct, groupPurQty, groupPrtQty, deliveryChallanQty, groupWslQty, returnQty, transferInQty, transferOutQty, damagedQty
+FINANCIAL: mrp, asp, netSalesValue, discountPct, costPrice
+ORGANIZATION: asm, region, zone, storeGrade, storeManager
+TIME: weekNumber, periodLabel, daysInPeriod
 
-      3. MUTUAL EXCLUSION (DE-DUPLICATION):
-         - Every schema field MUST point to a DIFFERENT column. 
-         - DEDUPLICATION: articleNo and sectionName can NEVER point to the same column header.
-         - DEDUPLICATION: locationName and articleNo can NEVER point to the same column header.
+RULES:
+1. headerRowIndex: 0-indexed row where column headers are located.
+2. articleNo maps to: SKU, Item Code, Product ID, Material No, Style No, Article No, Part No.
+3. locationName maps to: Store, Outlet, Site, Branch, Plant, Location.
+4. obsQty = opening stock. cbsQty = closing stock. netSlsQty = units sold/net sales qty.
+5. saleThruPct = sell-thru %, sell through %, ST%.
+6. Each canonical key must map to a DIFFERENT column. No duplicates.
+7. Only map columns you are confident about. Leave uncertain ones out.
+8. isConsolidated: true if there is no store/location column.
 
-      RAW HEADERS AND FIRST 30 ROWS:
-      ${headers.join(' | ')} (Row 0)
-      ${sampleRows.map((r, i) => `Row ${i+1}: ${r.join(' | ')}`).join('\n')}
+RAW HEADERS:
+Row 0: ${headers.join(' | ')}
+${sampleRows.map((r, i) => `Row ${i + 1}: ${r.join(' | ')}`).join('\n')}
 
-      RETURN ONLY A JSON OBJECT:
-      {
-        "headerRowIndex": number,
-        "mappings": {
-          "locationName": "Column Name",
-          "articleNo": "Column Name",
-          "colorName": "Column Name",
-          "fabric": "Column Name",
-          ...
-        },
-        "isConsolidated": boolean
-      }
-    `;
+RESPOND ONLY WITH JSON:
+{
+  "headerRowIndex": 0,
+  "mappings": {
+    "articleNo": "Column Name",
+    "locationName": "Column Name",
+    ...
+  },
+  "isConsolidated": false
+}`;
 
     try {
-      const chatCompletion = await groq.chat.completions.create({
+      const completion = await groq.chat.completions.create({
         messages: [
-          {
-            role: 'system',
-            content: 'You are a precise data mapping bot. Respond ONLY with valid JSON.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
+          { role: 'system', content: 'You are a precise data mapping bot. Respond ONLY with valid JSON.' },
+          { role: 'user', content: prompt }
         ],
         model: 'llama-3.3-70b-versatile',
         response_format: { type: 'json_object' }
       });
 
-      const result = JSON.parse(chatCompletion.choices[0].message.content);
-      console.log('AI MAPPING RESOLVED:', result);
+      const result = JSON.parse(completion.choices[0].message.content);
+      console.log('AI MAPPING RESOLVED:', JSON.stringify(result, null, 2));
       return result;
-
     } catch (error) {
-      console.error('AI MAPPING ERROR:', error);
-      return null; // Fallback to heuristics
+      console.error('AI MAPPING ERROR:', error.message);
+      return null;
     }
   }
 }
